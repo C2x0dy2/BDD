@@ -64,7 +64,12 @@ Relationnel (PostgreSQL, CRUD) :
 
 Non relationnel (MongoDB, CRUD) :
 - `GET/PUT /api/products/{id}/specs/`
-- `GET/POST /api/products/{id}/reviews/`
+- `GET /api/specs/search/?category=&color=&min_weight=&max_weight=` -- filtre
+  sur des champs imbriqués (`attributes.color`, `attributes.weight_kg`) avec
+  des opérateurs (`$gte`/`$lte`).
+- `GET/POST /api/products/{id}/reviews/` (`?min_rating=&has_replies=`) --
+  filtre sur `rating` (`$gte`) et sur la présence de réponses imbriquées
+  (`$exists`).
 - `GET /api/products/{id}/reviews/stats/` (pipeline d'agrégation)
 
 Endpoint croisé (PostgreSQL + MongoDB) :

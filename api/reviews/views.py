@@ -62,7 +62,18 @@ class ProductSpecsView(APIView):
 
 class ProductReviewsView(APIView):
     def get(self, request, product_id):
-        docs = reviews_collection().find({"product_id": product_id}).sort("created_at", -1).limit(50)
+        query = {"product_id": product_id}
+
+        min_rating = request.query_params.get("min_rating")
+        if min_rating is not None:
+            query["rating"] = {"$gte": int(min_rating)}
+
+        has_replies = request.query_params.get("has_replies")
+        if has_replies is not None:
+            # "replies.0" exists <=> the embedded replies array is non-empty.
+            query["replies.0"] = {"$exists": has_replies.lower() == "true"}
+
+        docs = reviews_collection().find(query).sort("created_at", -1).limit(50)
         return Response([_serialize_doc(d) for d in docs])
 
     def post(self, request, product_id):
@@ -101,6 +112,37 @@ class ProductReviewStatsView(APIView):
         }
 
         return Response({**stats, "rating_distribution": distribution})
+
+
+class ProductSpecsSearchView(APIView):
+    """Cross-catalog search over the embedded, category-dependent
+    attributes -- demonstrates filtering on nested fields with operators
+    ($gte/$lte for a range, exact match on a nested field), which a plain
+    lookup by product_id does not."""
+
+    def get(self, request):
+        query = {}
+
+        category = request.query_params.get("category")
+        if category is not None:
+            query["category"] = category
+
+        color = request.query_params.get("color")
+        if color is not None:
+            query["attributes.color"] = color
+
+        weight_range = {}
+        min_weight = request.query_params.get("min_weight")
+        if min_weight is not None:
+            weight_range["$gte"] = float(min_weight)
+        max_weight = request.query_params.get("max_weight")
+        if max_weight is not None:
+            weight_range["$lte"] = float(max_weight)
+        if weight_range:
+            query["attributes.weight_kg"] = weight_range
+
+        docs = product_specs_collection().find(query).limit(50)
+        return Response([_serialize_doc(d) for d in docs])
 
 
 class ProductDetailsView(APIView):

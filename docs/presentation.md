@@ -216,6 +216,16 @@ deux bases est donc assurée côté application, pas par une contrainte native
    distribution des notes (1 à 5 étoiles). Intention : afficher la note
    moyenne et son détail sur la fiche produit.
 
+8. **Filtres avec opérateurs sur champs imbriqués (MongoDB)** -- `GET
+   /api/specs/search/?category=Electronics&min_weight=5&max_weight=8`
+   filtre `product_specs` sur un champ imbriqué exact (`attributes.color`)
+   et une plage sur un autre champ imbriqué (`attributes.weight_kg` avec
+   `$gte`/`$lte`). De même, `GET
+   /api/products/{id}/reviews/?min_rating=4&has_replies=true` combine un
+   opérateur `$gte` sur `rating` et un filtre de présence (`$exists`) sur le
+   tableau imbriqué `replies`. Intention : retrouver des produits par
+   caractéristique physique, ou des avis notables avec suivi du support.
+
 ## 7. Index et performance
 
 Index créé : `idx_order_items_product_id` sur `order_items(product_id)`,
