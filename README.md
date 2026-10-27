@@ -45,8 +45,8 @@ curl http://localhost:8000/api/products/
 | Service        | URL                              |
 |----------------|-----------------------------------|
 | API            | http://localhost:8000/api/        |
-| Adminer (Postgres) | http://localhost:8080 (système : PostgreSQL, serveur : `db`, utilisateur : `postgres_admin`, mot de passe : `postgres_admin_pw`, base : `commerce`) |
-| Mongo Express  | http://localhost:8081             |
+| Adminer (Postgres) | http://localhost:8090 (système : PostgreSQL, serveur : `db`, utilisateur : `postgres_admin`, mot de passe : `postgres_admin_pw`, base : `commerce`) |
+| Mongo Express  | http://localhost:8091             |
 
 Pas de comptes applicatifs : l'API est ouverte, sans authentification (voir
 justification dans `docs/presentation.md`). Le rôle PostgreSQL utilisé par
