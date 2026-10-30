@@ -3,19 +3,19 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      # Bootstrap superuser: only ever used to run the init scripts below
-      # (schema creation, seeding, creating the restricted commerce_app
-      # role). The running application never connects with this account.
+      # Bootstrap/owner role: only used by the api entrypoint to run
+      # `migrate` and setup_relational_extras (DDL rights). The running
+      # application connects as the restricted commerce_app role instead
+      # (created by setup_relational_extras), never with this account.
       POSTGRES_USER: postgres_admin
       POSTGRES_PASSWORD: postgres_admin_pw
-      POSTGRES_DB: commerce
+      POSTGRES_DB: sika
     volumes:
-      - ./init-sql:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres_admin -d commerce"]
+      test: ["CMD-SHELL", "pg_isready -U postgres_admin -d sika"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,9 +24,8 @@ services:
     image: mongo:7
     restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: commerce
+      MONGO_INITDB_DATABASE: sika
     volumes:
-      - ./init-nosql:/docker-entrypoint-initdb.d:ro
       - mongodata:/data/db
     ports:
       - "27017:27017"
@@ -44,11 +43,15 @@ services:
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: commerce
+      POSTGRES_DB: sika
+      POSTGRES_OWNER_USER: postgres_admin
+      POSTGRES_OWNER_PASSWORD: postgres_admin_pw
       POSTGRES_APP_USER: commerce_app
       POSTGRES_APP_PASSWORD: commerce_app_pw
       MONGO_URI: mongodb://mongo:27017
-      MONGO_DB_NAME: commerce
+      MONGO_DB_NAME: sika
+    volumes:
+      - media_data:/app/media
     ports:
       - "8000:8000"
     depends_on:
@@ -79,3 +82,4 @@ services:
 volumes:
   pgdata:
   mongodata:
+  media_data:
