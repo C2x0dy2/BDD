@@ -67,6 +67,10 @@ restreint (DML uniquement, pas de DDL) -- voir
 
 ## Endpoints API principaux
 
+PostgreSQL (CRUD) :
+- `GET/POST /api/products/` (`?seller=<id>`), `GET/PUT/PATCH/DELETE /api/products/{id}/`
+- `PATCH /api/orders/{id}/status/`
+
 Rapports (requêtes SQL avancées, lecture seule) :
 - `GET /api/reports/sales-by-category/` (vue `category_sales_view`)
 - `GET /api/reports/top-selling-products/?limit=10`
