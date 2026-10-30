@@ -36,6 +36,25 @@ COLORS = ["noir", "blanc", "rouge", "bleu", "vert", "argent", "beige"]
 ORDER_STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"]
 PAYMENT_METHODS = ["cash", "mobile_money", "bank_transfer", "credit_card", "wave"]
 
+# Product.image's model default ("products/default.jpg") doesn't actually
+# exist as a file -- it was never part of the media fixtures that shipped
+# with SIKA. Cycle seeded products through the real photos that *do* exist
+# (api/media/products/) instead, so product cards aren't all broken images.
+PRODUCT_IMAGES = [
+    "1.jpg", "1_2.jpg", "2.jpg",
+    "71XGIukqAkL._AC_UF10001000_QL80_.jpg", "71dRiD4rOHL.jpg",
+    "71jYntm8tpL._UF10001000_QL80_.jpg", "Boutique_brosse_dents.jpg",
+    "images_1.jpeg", "images_17.jpeg", "images_18.jpeg",
+    "images_1_agnRaYT.jpeg", "images_1_k4Vw2es.jpeg", "images_1_l4RMFZi.jpeg",
+    "images_1_ltRUub4.jpeg", "images_1_xijac8A.jpeg", "images_21.jpeg",
+    "images_26.jpeg", "images_27.jpeg", "images_29.jpeg", "oriental-01_1.jpg",
+    "s-l1200.jpg", "samsung-galaxy-a54-8gb-ram-128gb-5g.jpg",
+    "service_de_table_-_set_de_12pcs_2_.jpg",
+    "sujet-africain-en-bois-elephant-sculpture-dans-la-masse-belle-patine-l1136_imgx1200_106.jpg",
+    "téléchargement_38.jpeg", "téléchargement_40.jpeg", "téléchargement_43.jpeg",
+    "téléchargement_47.jpeg", "téléchargement_48.jpeg", "unnamed.png",
+]
+
 SELLER_COUNT = 30
 CUSTOMER_COUNT = 970
 PRODUCT_COUNT = 2000
@@ -132,6 +151,7 @@ class Command(BaseCommand):
                 slug=f"{slugify(name)}-{i}",
                 description=fake.paragraph(nb_sentences=4),
                 price=Decimal(random.randint(500, 50000)) / 100,
+                image=f"products/{PRODUCT_IMAGES[i % len(PRODUCT_IMAGES)]}",
                 category=category,
                 seller=seller,
                 stock=random.randint(0, 200),
