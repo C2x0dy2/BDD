@@ -1,5 +1,14 @@
 from django.db import connection
 
+# SIKA's Django-managed tables (see e_commerce/models.py); names follow
+# Django's default <app_label>_<model> convention, confirmed against the
+# actual schema created by `manage.py migrate --database=migration`.
+CATEGORIES = "e_commerce_category"
+PRODUCTS = "e_commerce_product"
+USERS = "e_commerce_user"
+ORDERS = "e_commerce_order"
+ORDER_ITEMS = "e_commerce_orderitem"
+
 
 def _run(sql, params=None):
     with connection.cursor() as cursor:
@@ -10,25 +19,25 @@ def _run(sql, params=None):
 
 def sales_by_category():
     """Reads directly from the category_sales_view (JOIN + GROUP BY baked
-    into the view definition in docker/init-sql/01_schema.sql)."""
+    into the view definition, created by setup_relational_extras)."""
     return _run("SELECT * FROM category_sales_view ORDER BY revenue DESC")
 
 
 def top_selling_products(limit=10):
-    """Inner join across products / order_items / orders, aggregated and
-    ranked by revenue from paid or shipped orders."""
-    sql = """
+    """Inner join across products / order items / orders, aggregated and
+    ranked by revenue from paid orders."""
+    sql = f"""
         SELECT
             p.id,
             p.name,
-            p.sku,
+            p.slug,
             SUM(oi.quantity) AS units_sold,
-            SUM(oi.quantity * oi.unit_price) AS revenue
-        FROM products p
-        INNER JOIN order_items oi ON oi.product_id = p.id
-        INNER JOIN orders o ON o.id = oi.order_id
-        WHERE o.status IN ('paid', 'shipped')
-        GROUP BY p.id, p.name, p.sku
+            SUM(oi.quantity * oi.price) AS revenue
+        FROM {PRODUCTS} p
+        INNER JOIN {ORDER_ITEMS} oi ON oi.product_id = p.id
+        INNER JOIN {ORDERS} o ON o.id = oi.order_id
+        WHERE o.payment_status = 'paid'
+        GROUP BY p.id, p.name, p.slug
         ORDER BY revenue DESC
         LIMIT %s
     """
@@ -38,10 +47,10 @@ def top_selling_products(limit=10):
 def categories_with_product_counts():
     """Left (outer) join: every category is returned, including those
     with zero products, unlike an inner join which would drop them."""
-    sql = """
+    sql = f"""
         SELECT c.id, c.name, COUNT(p.id) AS product_count
-        FROM categories c
-        LEFT JOIN products p ON p.category_id = c.id
+        FROM {CATEGORIES} c
+        LEFT JOIN {PRODUCTS} p ON p.category_id = c.id
         GROUP BY c.id, c.name
         ORDER BY product_count DESC
     """
@@ -49,13 +58,12 @@ def categories_with_product_counts():
 
 
 def frequent_customers(min_orders=3):
-    """GROUP BY / HAVING: customers who placed more than `min_orders`
-    orders."""
-    sql = """
-        SELECT cu.id, cu.email, COUNT(o.id) AS order_count
-        FROM customers cu
-        JOIN orders o ON o.customer_id = cu.id
-        GROUP BY cu.id, cu.email
+    """GROUP BY / HAVING: users who placed more than `min_orders` orders."""
+    sql = f"""
+        SELECT u.id, u.email, u.username, COUNT(o.id) AS order_count
+        FROM {USERS} u
+        JOIN {ORDERS} o ON o.user_id = u.id
+        GROUP BY u.id, u.email, u.username
         HAVING COUNT(o.id) > %s
         ORDER BY order_count DESC
     """
@@ -63,29 +71,29 @@ def frequent_customers(min_orders=3):
 
 
 def customers_without_orders():
-    """NOT EXISTS subquery: customers who have never placed an order."""
-    sql = """
-        SELECT cu.id, cu.email, cu.first_name, cu.last_name
-        FROM customers cu
+    """NOT EXISTS subquery: users who have never placed an order."""
+    sql = f"""
+        SELECT u.id, u.email, u.username, u.first_name, u.last_name
+        FROM {USERS} u
         WHERE NOT EXISTS (
-            SELECT 1 FROM orders o WHERE o.customer_id = cu.id
+            SELECT 1 FROM {ORDERS} o WHERE o.user_id = u.id
         )
-        ORDER BY cu.id
+        ORDER BY u.id
     """
     return _run(sql)
 
 
 def monthly_revenue():
-    """CTE + window function: monthly revenue from paid/shipped orders,
-    with a running cumulative total computed via SUM() OVER."""
-    sql = """
+    """CTE + window function: monthly revenue from paid orders, with a
+    running cumulative total computed via SUM() OVER."""
+    sql = f"""
         WITH monthly AS (
             SELECT
                 date_trunc('month', o.created_at) AS month,
-                SUM(oi.quantity * oi.unit_price) AS revenue
-            FROM orders o
-            JOIN order_items oi ON oi.order_id = o.id
-            WHERE o.status IN ('paid', 'shipped')
+                SUM(oi.quantity * oi.price) AS revenue
+            FROM {ORDERS} o
+            JOIN {ORDER_ITEMS} oi ON oi.order_id = o.id
+            WHERE o.payment_status = 'paid'
             GROUP BY date_trunc('month', o.created_at)
         )
         SELECT
@@ -101,14 +109,15 @@ def monthly_revenue():
 def order_status_breakdown():
     """Aggregate FILTER clause: counts and revenue split by status in a
     single pass over orders, instead of one query per status."""
-    sql = """
+    sql = f"""
         SELECT
             COUNT(*) AS total_orders,
             COUNT(*) FILTER (WHERE status = 'pending') AS pending_count,
-            COUNT(*) FILTER (WHERE status = 'paid') AS paid_count,
+            COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed_count,
             COUNT(*) FILTER (WHERE status = 'shipped') AS shipped_count,
+            COUNT(*) FILTER (WHERE status = 'delivered') AS delivered_count,
             COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_count,
-            COALESCE(SUM(total_amount) FILTER (WHERE status IN ('paid', 'shipped')), 0) AS confirmed_revenue
-        FROM orders
+            COALESCE(SUM(total_amount) FILTER (WHERE payment_status = 'paid'), 0) AS paid_revenue
+        FROM {ORDERS}
     """
     return _run(sql)
