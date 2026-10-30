@@ -15,6 +15,15 @@ def _serialize(doc):
     return doc
 
 
+def ensure_indexes():
+    """Idempotent: safe to call on every container start (create_index is
+    a no-op if an identical index already exists). Called from
+    seed_demo_data unconditionally, not gated by the "already seeded"
+    check, so indexes exist even on restarts of an already-seeded stack."""
+    product_specs_collection().create_index("product_id", unique=True)
+    reviews_collection().create_index([("product_id", 1), ("created_at", -1)])
+
+
 def list_reviews_for_product(product_id, limit=50):
     docs = (
         reviews_collection()

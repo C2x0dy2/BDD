@@ -21,7 +21,7 @@ from django.utils.text import slugify
 from faker import Faker
 
 from e_commerce.models import Category, Order, OrderItem, Product, Tag, User, Wishlist
-from reviews.services import upsert_product_specs, upsert_review
+from reviews.services import ensure_indexes, upsert_product_specs, upsert_review
 
 CATEGORY_NAMES = [
     "Électronique", "Livres", "Vêtements", "Maison & Cuisine",
@@ -66,6 +66,8 @@ class Command(BaseCommand):
     help = "Seed PostgreSQL + MongoDB with demo e-commerce data (idempotent)."
 
     def handle(self, *args, **options):
+        ensure_indexes()
+
         if Category.objects.exists():
             self.stdout.write("seed_demo_data: data already present, skipping.")
             return
