@@ -1,17 +1,19 @@
-# Commerce -- Projet BDD relationnelles et non relationnelles (EFREI M1 Dev)
+# SÎKÂ -- Projet BDD relationnelles et non relationnelles (EFREI M1 Dev)
 
-Application e-commerce de démonstration combinant **PostgreSQL** (catalogue,
-clients, commandes) et **MongoDB** (fiches produit flexibles, avis clients),
-exposées via une API Django REST Framework.
+Marketplace e-commerce complète (clients, vendeurs, panier, commandes, avis)
+combinant **PostgreSQL** (identité, catalogue, commandes) et **MongoDB**
+(fiches produit flexibles, avis clients), exposée à la fois par un site
+web Django traditionnel et par une API REST.
 
 ## Pile technique
 
 | Composant       | Techno                                   | Rôle |
 |-----------------|-------------------------------------------|------|
-| Relationnelle   | PostgreSQL 16                              | Source de vérité : identité produit, prix, stock, clients, commandes |
-| Non relationnelle | MongoDB 7                                | Specs produit flexibles (`product_specs`) et avis (`reviews`) |
-| API             | Django 5 + Django REST Framework           | Expose les deux bases, endpoint croisé, rapports SQL avancés |
-| Infra           | Docker Compose                             | Démarrage et peuplement en une commande |
+| Relationnelle   | PostgreSQL 16                              | Source de vérité : utilisateurs, produits, panier, commandes |
+| Non relationnelle | MongoDB 7                                | Avis produits (`reviews`) et fiches techniques flexibles (`product_specs`) |
+| Application     | Django 5 (site HTML + templates)           | Inscription, panier, checkout, espace vendeur, avis |
+| API             | Django REST Framework (`/api/`)            | Endpoint croisé, rapports SQL avancés, CRUD Mongo |
+| Infra           | Docker Compose                             | Démarrage, migration, peuplement en une commande |
 | Confort démo    | Adminer, Mongo Express                     | Inspection visuelle des deux bases dans un navigateur |
 
 Voir [`docs/presentation.md`](docs/presentation.md) pour l'architecture détaillée,
@@ -28,55 +30,44 @@ cd docker
 docker compose up -d --build
 ```
 
-Au premier démarrage, PostgreSQL et MongoDB créent leur schéma et se peuplent
-automatiquement (quelques milliers de lignes/documents) via les scripts dans
-`docker/init-sql/` et `docker/init-nosql/`. Aucune manipulation manuelle
-supplémentaire n'est nécessaire.
+Au premier démarrage, l'entrypoint du conteneur `api`
+(`api/entrypoint.sh`) exécute dans l'ordre : `migrate` (avec le rôle
+propriétaire), la création de la vue/index/trigger/rôle restreint
+(`setup_relational_extras`), le peuplement de démonstration
+(`seed_demo_data`, PostgreSQL **et** MongoDB), puis démarre le serveur.
+Aucune manipulation manuelle supplémentaire n'est nécessaire.
 
 Vérifier que tout est en place :
 
 ```bash
 docker compose ps
-curl http://localhost:8000/api/products/
+curl http://localhost:8000/api/reports/sales-by-category/
 ```
 
 ## URLs
 
 | Service        | URL                              |
 |----------------|-----------------------------------|
+| Site e-commerce | http://localhost:8000/            |
+| Admin Django (Jazzmin) | http://localhost:8000/admin/ |
 | API            | http://localhost:8000/api/        |
-| Adminer (Postgres) | http://localhost:8090 (système : PostgreSQL, serveur : `db`, utilisateur : `postgres_admin`, mot de passe : `postgres_admin_pw`, base : `commerce`) |
+| Adminer (Postgres) | http://localhost:8090 (système : PostgreSQL, serveur : `db`, utilisateur : `postgres_admin`, mot de passe : `postgres_admin_pw`, base : `sika`) |
 | Mongo Express  | http://localhost:8091             |
 
-Pas de comptes applicatifs : l'API est ouverte, sans authentification (voir
-justification dans `docs/presentation.md`). Le rôle PostgreSQL utilisé par
-l'API (`commerce_app`) est un rôle restreint, sans droits DDL.
+Comptes de démonstration : tous les comptes créés par `seed_demo_data`
+(`user1@example.com` à `user1000@example.com`, les 30 premiers étant des
+vendeurs) utilisent le mot de passe `DemoPass123!`. Un superutilisateur
+Django doit être créé séparément si besoin (`docker compose exec api
+python manage.py createsuperuser --database=migration`) : l'API et le
+site n'exigent pas de compte admin pour fonctionner.
 
-## Endpoints principaux
+Le rôle PostgreSQL utilisé par l'application (`commerce_app`) est un rôle
+restreint (DML uniquement, pas de DDL) -- voir
+`api/e_commerce/management/commands/setup_relational_extras.py`.
 
-Relationnel (PostgreSQL, CRUD) :
-- `GET/POST /api/categories/`, `GET/PUT/PATCH/DELETE /api/categories/{id}/`
-- `GET/POST /api/products/` (`?category=<id>`), `.../{id}/`
-- `GET/POST /api/customers/`, `.../{id}/`
-- `GET/POST /api/orders/` (`?customer=<id>`), `.../{id}/` -- création avec
-  `items_input: [{product, quantity}, ...]` ; `total_amount` est recalculé
-  côté base par un trigger, jamais par l'application.
+## Endpoints API principaux
 
-Non relationnel (MongoDB, CRUD) :
-- `GET/PUT /api/products/{id}/specs/`
-- `GET /api/specs/search/?category=&color=&min_weight=&max_weight=` -- filtre
-  sur des champs imbriqués (`attributes.color`, `attributes.weight_kg`) avec
-  des opérateurs (`$gte`/`$lte`).
-- `GET/POST /api/products/{id}/reviews/` (`?min_rating=&has_replies=`) --
-  filtre sur `rating` (`$gte`) et sur la présence de réponses imbriquées
-  (`$exists`).
-- `GET /api/products/{id}/reviews/stats/` (pipeline d'agrégation)
-
-Endpoint croisé (PostgreSQL + MongoDB) :
-- `GET /api/products/{id}/details/` -- fusionne identité/prix/stock (Postgres)
-  avec specs et note moyenne (MongoDB).
-
-Rapports (requêtes SQL avancées) :
+Rapports (requêtes SQL avancées, lecture seule) :
 - `GET /api/reports/sales-by-category/` (vue `category_sales_view`)
 - `GET /api/reports/top-selling-products/?limit=10`
 - `GET /api/reports/categories-with-product-counts/`
@@ -85,19 +76,33 @@ Rapports (requêtes SQL avancées) :
 - `GET /api/reports/monthly-revenue/`
 - `GET /api/reports/order-status-breakdown/`
 
+MongoDB (CRUD + filtres sur champs imbriqués) :
+- `GET/PUT /api/products/{id}/specs/`
+- `GET /api/specs/search/?category=&color=&min_weight=&max_weight=`
+- `GET/POST /api/products/{id}/reviews/` (`?min_rating=&has_replies=`)
+- `GET /api/products/{id}/reviews/stats/` (pipeline d'agrégation)
+
+Endpoint croisé (PostgreSQL + MongoDB) :
+- `GET /api/products/{id}/details/` -- fusionne identité/prix/stock
+  (Postgres) avec specs et note moyenne (MongoDB).
+
 ## Arborescence
 
 ```
-/api                 Code source de l'API (Django + DRF)
-/docker               docker-compose.yml, scripts d'init SQL et NoSQL
-/docker/init-sql       Schéma PostgreSQL : tables, vue, index, trigger, rôle restreint, seed
-/docker/init-nosql     Collections MongoDB : seed + index
-/docs                 Document de présentation, schémas, vidéo
+/api                  Code source (Django + DRF)
+/api/sika              Projet Django (settings, urls)
+/api/e_commerce         App principale : modèles, vues HTML, templates, commandes de management
+/api/reviews             MongoDB (pymongo direct) : specs produit + avis, utilisé par le site ET l'API
+/api/reports              Rapports SQL avancés (lecture seule), exposés en API
+/docker                docker-compose.yml
+/docs                  Document de présentation, schémas, vidéo
 ```
 
 ## Outils IA utilisés
 
 Ce projet a été construit avec l'assistance de Claude (Anthropic), via
-Claude Code, pour la conception de l'architecture, l'écriture du code
-(modèles Django, vues DRF, schéma SQL, scripts de seed, Docker Compose) et la
-documentation. Chaque choix a été revu et validé avant d'être conservé.
+Claude Code : adaptation du projet Django SÎKÂ existant pour fonctionner
+sur PostgreSQL + MongoDB, écriture des commandes de management
+(`setup_relational_extras`, `seed_demo_data`), de la couche API, de
+l'infrastructure Docker, et de la documentation. Chaque choix a été revu
+et validé avant d'être conservé.

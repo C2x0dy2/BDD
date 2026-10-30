@@ -1,106 +1,123 @@
-# Document de présentation -- Commerce (EFREI M1 Dev, Projet BDD)
+# Document de présentation -- SÎKÂ (EFREI M1 Dev, Projet BDD)
 
 ## 1. Le projet
 
-Application e-commerce de démonstration : un catalogue de produits organisés
-par catégories, des clients, des commandes avec leurs lignes, des avis
-clients et des fiches produit enrichies. L'objectif pédagogique est de
-répartir ces données entre deux familles de bases selon la nature de
-chaque donnée, et de les exposer via une seule API.
+**SÎKÂ** est une marketplace e-commerce : des vendeurs y publient des
+produits organisés par catégories et tags, des clients parcourent le
+catalogue, ajoutent au panier, passent commande, et laissent des avis sur
+les produits qu'ils ont achetés. Le projet part d'une base Django déjà
+construite (authentification, panier, checkout, espace vendeur, templates)
+à laquelle ont été ajoutées les exigences du cours : une seconde base non
+relationnelle, une API, et les éléments avancés relationnels.
 
-Utilisateurs cibles (fictifs, pour la démonstration) : des clients qui
-consultent le catalogue, lisent des avis, et passent commande ; une équipe
-interne qui consulte des rapports de ventes.
+Utilisateurs : des **clients** (navigation, panier, commande, avis), des
+**vendeurs** (gestion de leur catalogue, suivi de leurs commandes), et un
+**administrateur** (validation des demandes vendeur, back-office Jazzmin).
 
 Fonctionnalités principales :
-- Catalogue produits/catégories avec CRUD complet.
-- Clients et commandes (avec lignes de commande), total recalculé
-  automatiquement côté base.
-- Avis clients et fiches produit enrichies (specs flexibles par catégorie).
-- Un endpoint qui fusionne les deux bases pour la fiche produit complète.
-- Des rapports SQL avancés (ventes par catégorie, clients fréquents,
-  chiffre d'affaires mensuel cumulé, etc.).
+- Inscription/connexion, avec demande de statut vendeur soumise à validation.
+- Catalogue produits filtrable par catégorie/tag, fiches produit enrichies.
+- Panier, checkout, suivi de commande, liste de souhaits.
+- Avis clients (une note + un commentaire par produit et par client ayant
+  commandé), stockés dans MongoDB et affichés en temps réel sur la fiche
+  produit.
+- Tableau de bord vendeur (produits, commandes reçues, statistiques).
+- Rapports de vente avancés et endpoint croisé exposés via une API JSON.
 
 ## 2. Architecture
 
 ```
-                          ┌───────────────────────┐
-                          │        Client          │
-                          │ (curl / navigateur /    │
-                          │  Adminer / Mongo Express)│
-                          └───────────┬───────────┘
-                                      │ HTTP (JSON)
-                                      ▼
-                          ┌───────────────────────┐
-                          │   API Django + DRF      │
-                          │   (container `api`)     │
-                          └──────┬───────────┬──────┘
-                                 │           │
-                     ORM Django  │           │  pymongo (accès direct,
-                     (lecture/   │           │  pas d'ORM)
-                     écriture)   ▼           ▼
-                     ┌─────────────────┐ ┌─────────────────┐
-                     │   PostgreSQL 16  │ │    MongoDB 7     │
-                     │  (container `db`)│ │ (container `mongo`)│
-                     │                  │ │                  │
-                     │ categories       │ │ product_specs    │
-                     │ products         │ │ reviews          │
-                     │ customers        │ │                  │
-                     │ orders           │ │                  │
-                     │ order_items      │ │                  │
-                     │ + vue, index,    │ │                  │
-                     │   trigger, rôle  │ │                  │
-                     │   restreint      │ │                  │
-                     └─────────────────┘ └─────────────────┘
+                 ┌─────────────────────────────┐
+                 │   Navigateur (site HTML)      │
+                 │ ou client API (curl/Postman)   │
+                 └──────────────┬────────────────┘
+                                │ HTTP
+                                ▼
+                 ┌─────────────────────────────┐
+                 │   Django (container `api`)     │
+                 │  e_commerce/  (vues HTML)       │
+                 │  reviews/     (pymongo direct)  │
+                 │  reports/     (SQL brut)         │
+                 └──────┬───────────────┬─────────┘
+          ORM Django    │               │  pymongo
+          (default =    │               │  (reviews/mongo_client.py)
+          rôle restreint)▼               ▼
+        ┌─────────────────────┐ ┌─────────────────────┐
+        │    PostgreSQL 16      │ │      MongoDB 7        │
+        │   (container `db`)    │ │   (container `mongo`)  │
+        │                        │ │                        │
+        │ e_commerce_user        │ │ product_specs          │
+        │ e_commerce_category    │ │ reviews                │
+        │ e_commerce_product     │ │                        │
+        │ e_commerce_order       │ │                        │
+        │ e_commerce_orderitem   │ │                        │
+        │ e_commerce_cart(item)  │ │                        │
+        │ e_commerce_wishlist    │ │                        │
+        │ + vue, index, trigger, │ │                        │
+        │   rôle restreint       │ │                        │
+        └─────────────────────┘ └─────────────────────┘
 ```
 
-L'API ne connaît jamais les deux bases comme un bloc monolithique : chaque
-app Django a une responsabilité unique (`catalog`/`orders` -> ORM Postgres,
-`reviews` -> pymongo direct, `reports` -> SQL brut en lecture). L'endpoint
-croisé (`/api/products/{id}/details/`) est le seul point du code qui
-interroge explicitement les deux bases pour construire une réponse.
+Deux rôles PostgreSQL distincts : un rôle *owner* (bootstrap, utilisé
+uniquement par l'entrypoint pour `migrate` et pour créer la vue/l'index/le
+trigger/le rôle restreint) et `commerce_app` (DML seulement, utilisé par
+l'application à l'exécution -- voir section 5). Les tables sont créées par
+les migrations Django (le projet SÎKÂ existant avait déjà un historique de
+migrations cohérent) ; la vue, l'index, le trigger et le rôle restreint
+sont ajoutés par-dessus par
+`api/e_commerce/management/commands/setup_relational_extras.py`, exécutée
+à chaque démarrage du conteneur (idempotente).
+
+`api/reviews/services.py` centralise tout l'accès à MongoDB : le site HTML
+(`e_commerce/views.py`) et l'API JSON (`reviews/views.py`) appellent les
+mêmes fonctions, il n'y a pas deux implémentations de la même logique.
 
 ## 3. Modèle relationnel
 
 ### MCD (description)
 
-- Une **Catégorie** possède plusieurs **Produits** (1,N).
-- Un **Client** passe plusieurs **Commandes** (1,N).
-- Une **Commande** contient plusieurs **Lignes de commande**, chacune
-  référençant un **Produit** et une quantité (association N,N entre
-  Commande et Produit, portée par `order_items`).
+- Un **Vendeur** (un `User` avec `is_seller=True`) publie plusieurs
+  **Produits** (1,N).
+- Une **Catégorie** regroupe plusieurs **Produits** (1,N) ; un **Produit**
+  porte plusieurs **Tags** (N,N).
+- Un **Client** passe plusieurs **Commandes** (1,N) ; une **Commande**
+  contient plusieurs **Lignes de commande**, chacune référençant un
+  **Produit** (association N,N entre Commande et Produit, portée par
+  `OrderItem`).
+- Un **Client** a un **Panier** avec plusieurs **Lignes de panier**, et une
+  **Liste de souhaits** (produits favoris).
 
-### MLD
+### MLD (tables réellement utilisées, noms générés par Django)
 
 ```
-categories(id, name, slug)
-products(id, sku, name, category_id -> categories.id, price, stock_quantity, created_at)
-customers(id, email, first_name, last_name, created_at)
-orders(id, customer_id -> customers.id, status, total_amount, created_at)
-order_items(id, order_id -> orders.id, product_id -> products.id, quantity, unit_price)
+e_commerce_user(id, username, email, first_name, last_name, is_seller, is_seller_approved, ...)
+e_commerce_category(id, name, slug, description, created_at)
+e_commerce_tag(id, name, slug)
+e_commerce_product(id, name, slug, description, price, category_id -> category.id,
+                    seller_id -> user.id, stock, is_active, created_at, updated_at)
+e_commerce_product_tags(id, product_id -> product.id, tag_id -> tag.id)
+e_commerce_order(id, order_number, user_id -> user.id, status, payment_method,
+                  payment_status, total_amount, delivery_address, created_at, updated_at)
+e_commerce_orderitem(id, order_id -> order.id, product_id -> product.id, quantity, price)
+e_commerce_wishlist(id, user_id -> user.id, product_id -> product.id, created_at)
 ```
 
-### MPD (script de création commenté)
+### MPD (script de création)
 
-Voir [`docker/init-sql/01_schema.sql`](../docker/init-sql/01_schema.sql).
-Points clés :
-- Clés primaires `BIGSERIAL`, clés étrangères avec `ON DELETE
-  RESTRICT`/`CASCADE` selon le sens métier (on ne supprime pas une catégorie
-  encore référencée ; les lignes de commande disparaissent avec leur
-  commande).
-- Contraintes `NOT NULL`, `UNIQUE` (email client, SKU produit, slug
-  catégorie), `CHECK` (prix et stock non négatifs, statut de commande dans
-  une liste fermée, quantité strictement positive).
-- `order_items` a une contrainte `UNIQUE(order_id, product_id)` : un produit
-  n'apparaît qu'une fois par commande.
-- Les modèles Django correspondants (`catalog/models.py`, `orders/models.py`)
-  sont déclarés `managed = False` : ce script SQL est la seule source de
-  vérité du schéma, Django ne fait jamais de `migrate` sur ces tables.
+Les tables sont créées par les migrations Django
+(`api/e_commerce/migrations/0001_initial.py` et suivantes) : clés primaires
+auto-incrémentées, clés étrangères (`on_delete=PROTECT/CASCADE/SET_NULL`
+selon le sens métier), `unique=True` (email, slug produit, numéro de
+commande), et des contraintes `CHECK` générées automatiquement par Django
+pour tous les champs `PositiveIntegerField` (stock, quantité). Par-dessus,
+`setup_relational_extras.py` ajoute une contrainte `CHECK` explicite
+supplémentaire (`price >= 0` sur `e_commerce_product`), une vue, un index,
+et un trigger -- détaillés en section 7.
 
 ## 4. Modèle non relationnel (MongoDB)
 
-Deux collections, peuplées et indexées par
-[`docker/init-nosql/01_seed.js`](../docker/init-nosql/01_seed.js) :
+Deux collections, peuplées par `seed_demo_data` et gérées par
+`api/reviews/services.py` :
 
 ### `product_specs`
 
@@ -108,196 +125,210 @@ Deux collections, peuplées et indexées par
 {
   "_id": "...",
   "product_id": 1,
-  "category": "Books",
-  "attributes": { "color": "green", "weight_kg": 9.29, "warranty_months": 24 },
+  "category": "Livres",
+  "attributes": { "color": "vert", "weight_kg": 5.15, "warranty_months": 24 },
   "media": ["https://.../product1-1.jpg", "https://.../product1-2.jpg"],
-  "tags": ["books", "demo-data"],
-  "updated_at": "2026-01-07T14:01:27Z"
+  "tags": ["demo-data"],
+  "updated_at": "2026-10-30T09:10:22Z"
 }
 ```
 
-`attributes`, `media` et `tags` sont **embarqués** : ils sont toujours lus
-avec la fiche produit, et leur forme varie selon la catégorie (un vêtement
-n'a pas les mêmes attributs qu'un livre) -- un schéma SQL figé imposerait
-soit des colonnes toujours vides, soit une table clé/valeur peu lisible.
-`product_id` est une **référence** vers `products.id` dans PostgreSQL, qui
-reste la source de vérité pour l'identité, le prix et le stock du produit.
+`attributes`/`media`/`tags` sont **embarqués** : toujours lus avec la
+fiche produit, de forme variable selon la catégorie (le poids n'a pas de
+sens pour un ebook, par exemple). `product_id` est une **référence** vers
+`e_commerce_product.id`, qui reste la source de vérité pour l'identité, le
+prix et le stock du produit.
 
 ### `reviews`
 
 ```json
 {
   "_id": "...",
-  "product_id": 5,
-  "customer_id": 1,
+  "product_id": 1002,
+  "user_id": 31,
   "rating": 5,
-  "title": "Great",
-  "body": "Loved it",
-  "created_at": "2026-10-05T14:04:34Z",
-  "replies": [
-    { "author": "support-team", "body": "Thanks for your feedback...", "created_at": "..." }
-  ]
+  "comment": "Excellent produit, livraison rapide, je recommande fortement !",
+  "created_at": "2026-10-30T09:15:47Z",
+  "replies": []
 }
 ```
 
-`replies` est **embarqué** : borné (quelques réponses par avis au plus),
-toujours affiché avec son avis parent, jamais interrogé seul. `product_id`
-et `customer_id` sont des **références** vers PostgreSQL (identifiants
-partagés), qui reste la source de vérité sur l'identité des produits et des
-clients.
+`product_id` et `user_id` sont des **références** vers PostgreSQL
+(identifiants partagés) ; `replies` est **embarqué** (borné, toujours
+affiché avec son avis parent). La règle métier "un avis par produit et par
+client, modifiable" est appliquée par un `update_one(..., upsert=True)`
+sur la paire `(product_id, user_id)` (`upsert_review` dans
+`reviews/services.py`), et toute écriture vérifie d'abord l'existence du
+produit côté Postgres (`_require_product`).
 
 Index créés :
-- `product_specs`: unique sur `product_id` (une fiche specs par produit).
-- `reviews`: composé sur `{product_id: 1, created_at: -1}` (tri des avis
-  récents par produit, le pattern d'accès le plus fréquent).
+- `product_specs` : unique sur `product_id`.
+- `reviews` : composé sur `{product_id: 1, created_at: -1}`.
+
+Pipeline d'agrégation : `$group` par `product_id` pour la note moyenne et
+le nombre d'avis (`rating_stats`), variante `$group`/`$sort` pour la
+distribution des notes 1 à 5 étoiles (`rating_distribution`).
 
 ## 5. Justification des choix techniques
 
-**Pourquoi PostgreSQL pour le catalogue/clients/commandes ?** Ces données
-sont fortement structurées et relationnelles (une commande référence un
-client et des produits existants ; un total doit rester cohérent avec ses
-lignes) : les contraintes d'intégrité référentielle, les transactions, et
-les jointures sont exactement ce pour quoi un SGBDR est fait.
+**Pourquoi garder les migrations Django plutôt que du SQL écrit à la
+main ?** Le projet SÎKÂ existait déjà avec un historique de migrations
+cohérent sur 10 modèles et ~2000 lignes de vues/formulaires qui en
+dépendent. Réécrire le schéma à la main aurait dupliqué ce travail sans
+valeur ajoutée et risqué des incohérences. Les éléments explicitement
+demandés par le sujet (vue, index, trigger, rôle restreint) sont ajoutés
+par-dessus dans un script dédié (`setup_relational_extras`), ce qui
+sépare clairement "ce que Django gère" de "ce qui répond au sujet BDD".
 
-**Pourquoi MongoDB pour les specs produit et les avis ?** Les attributs
-produit varient selon la catégorie (poids pour un livre n'a pas de sens pour
-un logiciel, par exemple), et les avis sont des documents indépendants,
-jamais mis à jour en même temps qu'une autre table, dont le volume de
-lecture (affichage public) dépasse largement le volume d'écriture. Forcer
-ces données dans des colonnes SQL fixes aurait nécessité soit une table EAV
-(peu lisible, peu performante), soit des colonnes `NULL` à la majorité.
+**Comment le rôle restreint cohabite avec les migrations Django ?** Deux
+alias de connexion sur la même base (`sika/settings.py`) : `migration`
+(rôle propriétaire, utilisé uniquement par l'entrypoint pour `migrate` et
+`setup_relational_extras`) et `default` (rôle `commerce_app`, utilisé par
+toute l'application -- site HTML et API -- à l'exécution). `commerce_app`
+n'a que des droits `SELECT/INSERT/UPDATE/DELETE`, jamais de DDL ni de
+superutilisateur ; vérifié en section 7.
 
-**Comment les deux bases sont reliées ?** Par des identifiants entiers
-partagés (`product_id`, `customer_id`), jamais par une clé étrangère native
-(impossible entre deux moteurs différents). PostgreSQL est la source de
-vérité sur l'existence de ces identifiants : tout écrit Mongo passant par
-l'API (`POST /reviews/`, `PUT /specs/`) vérifie d'abord que le produit
-existe côté Postgres (`_require_product`, voir `api/reviews/views.py`) avant
-d'écrire, pour éviter des documents Mongo orphelins. La cohérence entre les
-deux bases est donc assurée côté application, pas par une contrainte native
--- c'est la limite assumée d'une architecture polyglotte (voir section 9).
+**Pourquoi MongoDB pour les avis et les fiches techniques ?** Les
+attributs produit varient selon la catégorie (incompatible avec des
+colonnes SQL fixes sans tomber dans une table EAV peu lisible), et les
+avis sont des documents indépendants, à forte volumétrie de lecture
+(affichage public), jamais mis à jour en même temps qu'une commande.
+
+**Comment les deux bases sont reliées ?** Par les identifiants entiers
+`product_id`/`user_id`, jamais par une clé étrangère native (impossible
+entre deux moteurs). PostgreSQL reste la source de vérité sur l'existence
+de ces identifiants : toute écriture Mongo passant par l'API ou le site
+vérifie d'abord que le produit existe côté Postgres avant d'écrire. La
+cohérence entre les deux bases est donc assurée côté application, pas par
+une contrainte native -- limite assumée, voir section 9.
 
 ## 6. Exemples de requêtes
 
 1. **Vue + jointures** -- `GET /api/reports/sales-by-category/` lit
-   `category_sales_view`, qui fait un `LEFT JOIN` categories/products/
-   order_items/orders puis un `GROUP BY` catégorie, pour inclure même les
-   catégories sans aucune vente. Intention : classer les catégories par
-   chiffre d'affaires.
+   `category_sales_view` (`LEFT JOIN` category/product/orderitem/order,
+   filtré sur `payment_status='paid'`, `GROUP BY` catégorie). Intention :
+   classer les catégories par chiffre d'affaires.
 
 2. **Jointure interne + agrégat + tri** -- `GET
-   /api/reports/top-selling-products/?limit=10` fait un `INNER JOIN`
-   products/order_items/orders filtré sur les commandes payées/expédiées,
-   `SUM()` les quantités et le revenu, trie et limite. Intention :
-   identifier les produits les plus vendus.
+   /api/reports/top-selling-products/?limit=10` (`INNER JOIN`
+   product/orderitem/order, `SUM()`, tri et limite). Intention : identifier
+   les produits les plus vendus.
 
 3. **`GROUP BY` / `HAVING`** -- `GET
-   /api/reports/frequent-customers/?min_orders=3` renvoie les clients ayant
-   passé strictement plus de `min_orders` commandes. Intention : repérer
-   les clients fidèles.
+   /api/reports/frequent-customers/?min_orders=3` : utilisateurs ayant
+   passé plus de `min_orders` commandes.
 
 4. **Sous-requête `NOT EXISTS`** -- `GET
-   /api/reports/customers-without-orders/` renvoie les clients n'ayant
-   jamais commandé. Intention : cibler une relance marketing.
+   /api/reports/customers-without-orders/` : utilisateurs n'ayant jamais
+   commandé.
 
-5. **CTE + fonction fenêtrée** -- `GET /api/reports/monthly-revenue/`
-   calcule le revenu mensuel dans un `WITH monthly AS (...)`, puis une
-   colonne de cumul avec `SUM(revenue) OVER (ORDER BY month)`. Intention :
-   suivre la trajectoire de chiffre d'affaires.
+5. **CTE + fonction fenêtrée** -- `GET /api/reports/monthly-revenue/` :
+   `WITH monthly AS (...)` puis `SUM(revenue) OVER (ORDER BY month)` pour
+   le cumul. Résultat réel sur le jeu de données de démo : 13 mois, de
+   11 593 FCFA (octobre 2025) à 3 513 588 FCFA cumulés (octobre 2026).
 
-6. **Agrégat `FILTER`** -- `GET /api/reports/order-status-breakdown/`
-   compte les commandes par statut en une seule requête
-   (`COUNT(*) FILTER (WHERE status = '...')`) plutôt qu'une requête par
-   statut. Intention : tableau de bord opérationnel.
+6. **Agrégat `FILTER`** -- `GET /api/reports/order-status-breakdown/` :
+   répartition des commandes par statut en une seule requête
+   (`COUNT(*) FILTER (WHERE status = '...')`).
 
 7. **Pipeline d'agrégation MongoDB** -- `GET
-   /api/products/{id}/reviews/stats/` fait un `$group` pour la note
-   moyenne et le nombre d'avis, puis un second `$group`/`$sort` pour la
-   distribution des notes (1 à 5 étoiles). Intention : afficher la note
-   moyenne et son détail sur la fiche produit.
+   /api/products/{id}/reviews/stats/` : note moyenne + nombre d'avis
+   (`$group`), puis distribution des notes (`$group`/`$sort`).
 
 8. **Filtres avec opérateurs sur champs imbriqués (MongoDB)** -- `GET
-   /api/specs/search/?category=Electronics&min_weight=5&max_weight=8`
-   filtre `product_specs` sur un champ imbriqué exact (`attributes.color`)
-   et une plage sur un autre champ imbriqué (`attributes.weight_kg` avec
-   `$gte`/`$lte`). De même, `GET
-   /api/products/{id}/reviews/?min_rating=4&has_replies=true` combine un
-   opérateur `$gte` sur `rating` et un filtre de présence (`$exists`) sur le
-   tableau imbriqué `replies`. Intention : retrouver des produits par
-   caractéristique physique, ou des avis notables avec suivi du support.
+   /api/specs/search/?category=Électronique&min_weight=5&max_weight=8`
+   (exact sur `attributes.color`, plage `$gte`/`$lte` sur
+   `attributes.weight_kg`) ; `GET
+   /api/products/{id}/reviews/?min_rating=4&has_replies=true` (`$gte` sur
+   `rating`, présence (`$exists`) sur le tableau imbriqué `replies`).
+
+9. **Écriture puis lecture croisée, en conditions réelles** -- un avis
+   soumis depuis le formulaire HTML du site
+   (`POST /products/{id}/review/`) est immédiatement visible à la fois sur
+   la fiche produit HTML et via `GET /api/products/{id}/reviews/` : testé
+   en conditions réelles (connexion, ajout panier, soumission d'avis via
+   curl en simulant un navigateur), voir section 6 de la vidéo.
 
 ## 7. Index et performance
 
-Index créé : `idx_order_items_product_id` sur `order_items(product_id)`,
-justifié par les lookups fréquents "commandes contenant le produit X" et les
-rapports de revenu par produit (`top-selling-products`,
-`category_sales_view`).
+Index créé : `idx_order_created_at` sur `e_commerce_order(created_at)`.
+Deux candidats ont été essayés et écartés avant celui-ci (détails dans
+`api/e_commerce/management/commands/setup_relational_extras.py`) :
+- Un index sur `orderitem.product_id` s'est révélé redondant : Django crée
+  automatiquement un index sur **toute** colonne de clé étrangère.
+- Un index sur `order.payment_status` n'apportait rien : avec seulement 3
+  valeurs possibles et ~60% des lignes à `'paid'`, le planificateur
+  préfère toujours un balayage séquentiel, index ou non.
 
-Mesure réelle, requête `SELECT * FROM order_items WHERE product_id = 500;`
-sur le jeu de données de démonstration (7 500 lignes dans `order_items`) :
+`created_at` est une colonne à forte cardinalité, pas une clé étrangère
+(donc non indexée automatiquement), et sert aux requêtes par plage de
+dates (reporting mensuel, tableaux de bord "commandes récentes"). Mesure
+réelle sur `SELECT * FROM e_commerce_order WHERE created_at >= '2026-09-01'
+AND created_at < '2026-10-01';` (3000 lignes dans `e_commerce_order`, ~256
+lignes dans la plage) :
 
-**Sans index** (`DROP INDEX idx_order_items_product_id;`) :
+**Sans index** (`DROP INDEX idx_order_created_at;`) :
 ```
-Seq Scan on order_items  (cost=0.00..156.75 rows=4 width=34)
-                         (actual time=0.136..0.427 rows=5 loops=1)
-  Filter: (product_id = 500)
-  Rows Removed by Filter: 7497
-  Buffers: shared hit=63
-Execution Time: 0.460 ms
-```
-
-**Avec index** (`CREATE INDEX idx_order_items_product_id ...;`) :
-```
-Bitmap Heap Scan on order_items  (cost=4.31..17.34 rows=4 width=34)
-                                 (actual time=0.075..0.083 rows=5 loops=1)
-  Recheck Cond: (product_id = 500)
-  Heap Blocks: exact=5
-  Buffers: shared hit=9 read=1
-  ->  Bitmap Index Scan on idx_order_items_product_id
-        (actual time=0.066..0.066 rows=5 loops=1)
-        Buffers: shared hit=4 read=1
-Execution Time: 0.121 ms
+Seq Scan on e_commerce_order  (cost=0.00..340.00 rows=255 width=192)
+                              (actual time=0.355..1.194 rows=256 loops=1)
+  Filter: ((created_at >= ...) AND (created_at < ...))
+  Rows Removed by Filter: 2744
+  Buffers: shared hit=295
+Execution Time: 1.343 ms
 ```
 
-Le plan passe d'un `Seq Scan` (lecture des 7 500 lignes, 63 buffers) à un
-`Bitmap Index Scan` (10 buffers), soit environ 3,8x plus rapide en temps
-d'exécution sur ce volume de démonstration. L'écart se creuserait encore
-avec un volume de données plus proche d'un catalogue réel.
+**Avec index** (`CREATE INDEX idx_order_created_at ...;`) :
+```
+Bitmap Heap Scan on e_commerce_order  (cost=...) (actual time=0.282..0.299 rows=256 loops=1)
+  Recheck Cond: ((created_at >= ...) AND (created_at < ...))
+  Heap Blocks: exact=134
+  Buffers: shared hit=134 read=3
+  ->  Bitmap Index Scan on idx_order_created_at
+        (actual time=0.071..0.071 rows=256 loops=1)
+        Buffers: shared read=3
+Execution Time: 0.635 ms
+```
+
+Le plan passe d'un `Seq Scan` (295 buffers) à un `Bitmap Index Scan` (137
+buffers), soit environ 2,1x plus rapide en temps d'exécution sur ce volume
+de démonstration -- l'écart se creuserait avec un catalogue de commandes
+plus proche d'un volume réel.
 
 ## 8. Stratégie de sauvegarde
 
-- **PostgreSQL** : sauvegarde logique quotidienne via `pg_dump` du volume
-  nommé `pgdata` (ex. `docker compose exec db pg_dump -U postgres_admin
-  commerce > backup.sql`), conservée 7 jours en rotation. Restauration via
-  `psql -U postgres_admin commerce < backup.sql` sur une base vide.
-- **MongoDB** : sauvegarde quotidienne via `mongodump --db commerce`,
-  restauration via `mongorestore`.
-- Pour ce projet de démonstration, ces sauvegardes ne sont pas automatisées
-  (pas de cron) : c'est un choix documenté, pas un oubli -- un volume Docker
-  nommé suffit à persister les données entre `docker compose down`/`up`,
-  et un script de seed reproductible (`docker/init-sql`, `docker/init-nosql`)
-  permet de reconstruire un jeu de données de démonstration à l'identique en
-  cas de perte.
+- **PostgreSQL** : sauvegarde logique via `pg_dump` du volume nommé
+  `pgdata` (ex. `docker compose exec db pg_dump -U postgres_admin sika >
+  backup.sql`), restauration via `psql -U postgres_admin sika <
+  backup.sql` sur une base vide.
+- **MongoDB** : `mongodump --db sika`, restauration via `mongorestore`.
+- **Médias** (images produit/vendeur) : volume nommé `media_data`, à
+  sauvegarder avec un simple `docker run --rm -v
+  docker_media_data:/data -v $(pwd):/backup busybox tar czf
+  /backup/media.tar.gz /data`.
+- Pour ce projet de démonstration, ces sauvegardes ne sont pas
+  automatisées (pas de cron) -- choix documenté : un volume Docker nommé
+  suffit à persister les données entre `docker compose down`/`up`, et
+  `seed_demo_data` (idempotent) permet de reconstruire un jeu de données
+  de démonstration à l'identique en cas de perte totale.
 
 ## 9. Limites et pistes d'amélioration
 
-- **Cohérence inter-bases non transactionnelle** : un produit supprimé côté
-  Postgres (actuellement impossible via l'API tant qu'il a des commandes ou
-  specs, par `ON DELETE RESTRICT`) ne purge pas automatiquement ses
-  documents Mongo associés. Une tâche de nettoyage périodique ou un flux
-  d'événements (ex. Debezium/CDC) serait nécessaire pour une vraie
-  synchronisation en production.
-- **MongoDB sans authentification** : accepté pour ce projet académique où
-  seul le réseau Docker interne y accède ; à corriger avant tout usage réel
-  (`MONGO_INITDB_ROOT_USERNAME`/`PASSWORD` + utilisateur applicatif dédié,
-  symétrique du rôle `commerce_app` déjà en place côté PostgreSQL).
-- **API sans authentification** : choix délibéré pour simplifier la
-  démonstration ; une vraie mise en production ajouterait une authentification
-  par token et des permissions par rôle.
-- **Pas de cache** : une troisième base (Redis) pourrait mettre en cache les
-  endpoints de rapports les plus coûteux (sales-by-category,
-  monthly-revenue), mais n'a pas été ajoutée car non nécessaire au volume de
-  démonstration actuel -- c'est un bonus explicitement non exigé par le
-  sujet.
-- **Frontend** : non fourni (bonus non exigé par le sujet) ; l'API est
-  démontrée via curl/Postman et les interfaces Adminer/Mongo Express.
+- **Cohérence inter-bases non transactionnelle** : un produit supprimé
+  côté Postgres ne purge pas automatiquement ses documents Mongo associés
+  (`product_specs`, `reviews`). Une tâche de nettoyage périodique ou un
+  flux d'événements (CDC) serait nécessaire en production.
+- **MongoDB sans authentification** : accepté pour ce projet académique
+  où seul le réseau Docker interne y accède ; à corriger avant tout usage
+  réel (utilisateur applicatif dédié, symétrique de `commerce_app`).
+- **API sans authentification** : les endpoints `/api/` sont ouverts (le
+  site HTML, lui, a sa propre authentification par session) ; une vraie
+  mise en production ajouterait une authentification par token sur l'API
+  également.
+- **`total_amount` recalculé par trigger, pas par le code applicatif** :
+  volontaire (voir section 5), mais signifie que toute modification
+  directe en SQL d'une ligne de commande doit passer par de vraies
+  requêtes SQL (pas de bypass du trigger) pour rester cohérente -- déjà le
+  cas avec `bulk_create`, qui déclenche bien le trigger ligne par ligne.
+- **Emails en mode console par défaut** : pas de vrai envoi SMTP sans
+  configuration explicite (`.env`) -- choix assumé pour ne pas exiger de
+  compte email réel pour faire tourner ou corriger le projet.
