@@ -1,0 +1,273 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Accueil - SÎKÂ{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-primary text-white py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="fw-bold mb-3 text-white" style="font-size: 3.5rem; color: white !important;">Bienvenu(e) sur SÎKÂ</h1>
+                <p class="lead mb-4 opacity-75">Des produits de qualité, un service rapide,<br>payez en toute confiance.</p>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'e_commerce:product_list' %}" class="btn btn-light">
+                        <i class="bi bi-cart-plus"></i> Explorer
+                    </a>
+                    {% comment %} <a href="{% url 'e_commerce:login' %}" class="btn btn-outline-light">
+                        <i class="bi bi-person"></i> Se connecter
+                    </a> {% endcomment %}
+                </div>
+            </div>
+            <div class="col-lg-6 d-none d-lg-block">
+                <div id="heroCarousel" class="carousel slide rounded-4 overflow-hidden shadow" data-bs-ride="carousel">
+                    <div class="carousel-indicators">
+                        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                    </div>
+                    <div class="carousel-inner" style="max-height:420px;">
+                        <div class="carousel-item active">
+                            <img src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=1600&auto=format&fit=crop" class="d-block w-100" alt="Promo 1" style="object-fit:cover;height:420px;">
+                            <div class="carousel-caption d-none d-md-block text-start">
+                                <h5 class="fw-bold">Nouveautés</h5>
+                                <p>Découvrez les derniers produits au meilleur prix.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <img src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?q=80&w=1600&auto=format&fit=crop" class="d-block w-100" alt="Promo 2" style="object-fit:cover;height:420px;">
+                            <div class="carousel-caption d-none d-md-block text-start">
+                                <h5 class="fw-bold">Livraison rapide</h5>
+                                <p>Recevez vos commandes plus vite.</p>
+                            </div>
+                        </div>
+                        <div class="carousel-item">
+                            <img src="https://images.unsplash.com/photo-1540574163026-643ea20ade25?q=80&w=1600&auto=format&fit=crop" class="d-block w-100" alt="Promo 3" style="object-fit:cover;height:420px;">
+                            <div class="carousel-caption d-none d-md-block text-start">
+                                <h5 class="fw-bold">Meilleures offres</h5>
+                                <p>Des réductions chaque semaine.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Précédent</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Suivant</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Categories -->
+{% if categories %}
+<section class="py-5">
+    <div class="container">
+        <h2 class="mb-4">Catégories Populaires</h2>
+        <div class="row">
+            {% for category in categories %}
+                <div class="col-md-4 col-lg-2 mb-3">
+                    <a href="{% url 'e_commerce:product_list' %}?category={{ category.slug }}" 
+                       class="text-decoration-none">
+                        <div class="card h-100 text-center hover-effect">
+                            <div class="card-body">
+                                <i class="bi bi-tag-fill text-primary" style="font-size: 3rem;"></i>
+                                <h5 class="mt-2">{{ category.name }}</h5>
+                                <small class="text-muted">
+                                    {{ category.product_count }} produit(s)
+                                </small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Featured Products -->
+{% if featured_products %}
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Produits Populaires</h2>
+            <a href="{% url 'e_commerce:product_list' %}" class="btn btn-outline-primary">
+                Voir tout <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="row">
+            {% for product in featured_products %}
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card product-card h-100 border-0 shadow-sm position-relative">
+                        <!-- Bouton favori -->
+                        {% if user.is_authenticated %}
+                            <div class="position-absolute top-0 end-0 p-2">
+                                <button class="btn btn-sm btn-light wishlist-btn-home" 
+                                        data-product-id="{{ product.id }}"
+                                        title="{% if product.id in user_wishlist %}Retirer des favoris{% else %}Ajouter aux favoris{% endif %}">
+                                    <i class="bi bi-heart{% if product.id in user_wishlist %}-fill text-danger{% endif %}"></i>
+                                </button>
+                            </div>
+                        {% endif %}
+                        
+                        {% if product.image %}
+                            <img src="{{ product.image.url }}" 
+                                 class="card-img-top" 
+                                 alt="{{ product.name }}"
+                                 style="height: 200px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-secondary-subtle d-flex align-items-center justify-content-center" 
+                                 style="height: 200px;">
+                                <i class="bi bi-image text-white" style="font-size: 4rem;"></i>
+                            </div>
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">{{ product.name|truncatewords:5 }}</h5>
+                            
+                            <!-- Catégorie -->
+                            {% if product.category %}
+                                <small class="text-muted mb-2">
+                                    <i class="bi bi-tag"></i> {{ product.category.name }}
+                                </small>
+                            {% endif %}
+                            
+                            <!-- Prix -->
+                            <p class="price fs-4 mb-2">{{ product.price|floatformat:0 }} FCFA</p>
+                            
+                            <!-- Stock -->
+                            <div class="mb-3">
+                                {% if product.stock > 0 %}
+                                    <small class="text-success">
+                                        <i class="bi bi-check-circle"></i> En stock ({{ product.stock }})
+                                    </small>
+                                {% else %}
+                                    <small class="text-danger">
+                                        <i class="bi bi-x-circle"></i> Rupture de stock
+                                    </small>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="mt-auto">
+                                <div class="d-grid gap-2">
+                                    {% if product.slug %}
+                                        <a href="{% url 'e_commerce:product_detail' product.slug %}" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-eye"></i> Voir détails
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'e_commerce:product_detail' product.id %}" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-eye"></i> Voir détails
+                                        </a>
+                                    {% endif %}
+                                    
+                                    {% if user.is_authenticated and product.stock > 0 %}
+                                        <a href="{% url 'e_commerce:add_to_cart' product.id %}" class="btn btn-success btn-sm">
+                                            <i class="bi bi-cart-plus"></i> Ajouter au panier
+                                        </a>
+                                    {% elif not user.is_authenticated %}
+                                        <a href="{% url 'e_commerce:login' %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-box-arrow-in-right"></i> Ajouter au panier
+                                        </a>
+                                    {% elif product.stock == 0 %}
+                                        <button class="btn btn-secondary btn-sm" disabled>
+                                            <i class="bi bi-x-circle"></i> Indisponible
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<style>
+.hover-effect {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.hover-effect:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+}
+
+/* Forcer l'affichage du titre */
+h1 {
+    display: block !important;
+    visibility: visible !important;
+}
+</style>
+
+<script>
+// Gestion des boutons favoris sur la page d'accueil
+document.addEventListener('DOMContentLoaded', function() {
+    const wishlistBtns = document.querySelectorAll('.wishlist-btn-home');
+    
+    wishlistBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const productId = this.dataset.productId;
+            
+            fetch(`/wishlist/toggle/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mettre à jour l'icône
+                    const icon = this.querySelector('i');
+                    if (data.action === 'added') {
+                        icon.className = 'bi bi-heart-fill text-danger';
+                        this.title = 'Retirer des favoris';
+                    } else {
+                        icon.className = 'bi bi-heart';
+                        this.title = 'Ajouter aux favoris';
+                    }
+                    
+                    // Afficher le message
+                    showAlert(data.message, 'success');
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Erreur lors de la mise à jour des favoris', 'danger');
+            });
+        });
+    });
+});
+
+// Fonction pour afficher des alertes
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Supprimer automatiquement après 3 secondes
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

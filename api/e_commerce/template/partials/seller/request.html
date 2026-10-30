@@ -1,0 +1,68 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Devenir Vendeur - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4"><i class="bi bi-shop"></i> Devenir Vendeur</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Demande de Vendeur</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle"></i>
+                        Remplissez le formulaire ci-dessous pour devenir vendeur sur SÎKÂ.
+                        Nous examinerons votre demande et vous enverrons une réponse par email.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.store_name.id_for_label }}" 
+                                   class="form-label">Nom de la boutique *</label>
+                            {{ form.store_name }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" 
+                                   class="form-label">Description *</label>
+                            {{ form.description }}
+                            <small class="text-muted">Décrivez votre boutique et vos produits</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.phone.id_for_label }}" 
+                                   class="form-label">Numéro de téléphone *</label>
+                            {{ form.phone }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.address.id_for_label }}" 
+                                   class="form-label">Adresse *</label>
+                            {{ form.address }}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn">
+                                <i class="bi bi-send"></i> Soumettre la demande
+                            </button>
+                            <a href="{% url 'e_commerce:profile' %}" class="btn btn-outline-secondary">
+                                Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+

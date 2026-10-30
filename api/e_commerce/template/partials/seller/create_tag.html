@@ -1,0 +1,57 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Créer un tag - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-tag"></i> Créer un tag</h2>
+        {% if request.GET.next %}
+            <a href="{{ request.GET.next }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour au formulaire
+            </a>
+        {% else %}
+            <a href="{% url 'e_commerce:seller_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour au tableau de bord
+            </a>
+        {% endif %}
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Nouveau tag</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                Nom du tag *
+                            </label>
+                            <input type="text" 
+                                   name="name" 
+                                   id="name"
+                                   class="form-control"
+                                   placeholder="Ex: Nouveau, Promo, Populaire"
+                                   required>
+                            <small class="text-muted">
+                                Le slug sera généré automatiquement à partir du nom.
+                            </small>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn">
+                                <i class="bi bi-check-circle"></i> Créer le tag
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

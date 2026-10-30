@@ -1,0 +1,164 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Mes Commandes - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-check"></i> Gestion des Commandes</h2>
+        <a href="{% url 'e_commerce:seller_dashboard' %}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Retour au tableau de bord
+        </a>
+    </div>
+    
+    <!-- Status Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Filtrer par statut</h5>
+            <div class="btn-group" role="group">
+                <a href="{% url 'e_commerce:seller_orders' %}" 
+                   class="btn {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Toutes
+                </a>
+                {% for status_code, status_name in status_choices %}
+                    <a href="{% url 'e_commerce:seller_orders' %}?status={{ status_code }}" 
+                       class="btn {% if status_filter == status_code %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        {{ status_name }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Orders List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Commandes {% if status_filter %}({{ status_filter|title }}){% endif %}</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Commande</th>
+                                <th>Client</th>
+                                <th>Produits</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in page_obj %}
+                                <tr>
+                                    <td>
+                                        <strong>#{{ order.order_number }}</strong>
+                                    </td>
+                                    <td>
+                                        {{ order.user.get_full_name|default:order.user.username }}
+                                        <br>
+                                        <small class="text-muted">{{ order.user.email }}</small>
+                                    </td>
+                                    <td>
+                                        {% for item in order.items.all %}
+                                            {% if item.product.seller == user %}
+                                                <div class="mb-1">
+                                                    <strong>{{ item.product.name }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        {{ item.quantity }} x {{ item.price|floatformat:0 }} FCFA
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {% with seller_total=0 %}
+                                            {% for item in order.items.all %}
+                                                {% if item.product.seller == user %}
+                                                    {% with seller_total=seller_total|add:item.get_total %}{% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            <strong>{{ seller_total|floatformat:0 }} FCFA</strong>
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if order.status == 'pending' %}bg-warning
+                                            {% elif order.status == 'confirmed' %}bg-info
+                                            {% elif order.status == 'shipped' %}bg-primary
+                                            {% elif order.status == 'delivered' %}bg-success
+                                            {% elif order.status == 'cancelled' %}bg-danger
+                                            {% endif %}">
+                                            {{ order.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ order.created_at|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'e_commerce:update_order_status' order.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i> Modifier
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Orders pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if status_filter %}&status={{ status_filter }}{% endif %}">Premier</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Précédent</a>
+                                </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Suivant</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Dernier</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <h4 class="text-muted mt-3">Aucune commande trouvée</h4>
+                    <p class="text-muted">
+                        {% if status_filter %}
+                            Aucune commande avec le statut "{{ status_filter|title }}" trouvée.
+                        {% else %}
+                            Vous n'avez pas encore de commandes.
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
