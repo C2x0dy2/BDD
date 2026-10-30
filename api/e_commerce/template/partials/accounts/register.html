@@ -1,0 +1,201 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Inscription - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0"><i class="bi bi-person-plus"></i> Créer un compte</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.username.id_for_label }}" 
+                                       class="form-label">Nom d'utilisateur *</label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <div class="text-danger small">{{ form.username.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.email.id_for_label }}" 
+                                       class="form-label">Email *</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small">{{ form.email.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" 
+                                       class="form-label">Prénom *</label>
+                                {{ form.first_name }}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" 
+                                       class="form-label">Nom *</label>
+                                {{ form.last_name }}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.phone.id_for_label }}" 
+                                   class="form-label">Téléphone</label>
+                            {{ form.phone }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.password1.id_for_label }}" 
+                                   class="form-label">Mot de passe *</label>
+                            {{ form.password1 }}
+                            {% if form.password1.errors %}
+                                <div class="text-danger small">{{ form.password1.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.password2.id_for_label }}" 
+                                   class="form-label">Confirmer le mot de passe *</label>
+                            {{ form.password2 }}
+                            {% if form.password2.errors %}
+                                <div class="text-danger small">{{ form.password2.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Seller Option -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.become_seller }}
+                                <label class="form-check-label" for="{{ form.become_seller.id_for_label }}">
+                                    <strong>Devenir vendeur</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted">Cochez cette case si vous souhaitez vendre des produits sur notre plateforme.</small>
+                        </div>
+                        
+                        <!-- Seller-specific fields (initially hidden) -->
+                        <div id="seller-fields" style="display: none;">
+                            <div class="alert alert-dark">
+                                <i class="bi bi-shop"></i> 
+                                <strong>Informations vendeur</strong><br>
+                                Veuillez remplir les informations suivantes pour devenir vendeur.
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.store_name.id_for_label }}" 
+                                       class="form-label">Nom de la boutique *</label>
+                                {{ form.store_name }}
+                                {% if form.store_name.errors %}
+                                    <div class="text-danger small">{{ form.store_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.store_description.id_for_label }}" 
+                                       class="form-label">Description de la boutique *</label>
+                                {{ form.store_description }}
+                                {% if form.store_description.errors %}
+                                    <div class="text-danger small">{{ form.store_description.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.store_phone.id_for_label }}" 
+                                       class="form-label">Téléphone de la boutique *</label>
+                                {{ form.store_phone }}
+                                {% if form.store_phone.errors %}
+                                    <div class="text-danger small">{{ form.store_phone.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.store_address.id_for_label }}" 
+                                       class="form-label">Adresse de la boutique *</label>
+                                {{ form.store_address }}
+                                {% if form.store_address.errors %}
+                                    <div class="text-danger small">{{ form.store_address.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.identity_photo.id_for_label }}" 
+                                       class="form-label">Photo d'identité *</label>
+                                {{ form.identity_photo }}
+                                <small class="text-muted">Veuillez télécharger une photo de votre pièce d'identité (CNI, passeport, etc.)</small>
+                                {% if form.identity_photo.errors %}
+                                    <div class="text-danger small">{{ form.identity_photo.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Privacy Policy Acceptance -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.accept_privacy }}
+                                <label class="form-check-label" for="{{ form.accept_privacy.id_for_label }}">
+                                    J'accepte les <a href="{% url 'e_commerce:privacy_policy' %}" target="_blank">conditions de confidentialité</a>
+                                </label>
+                            </div>
+                            {% if form.accept_privacy.errors %}
+                                <div class="text-danger small">{{ form.accept_privacy.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-dark">
+                                <i class="bi bi-check-circle"></i> S'inscrire
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <p class="mb-0">Vous avez déjà un compte?</p>
+                        <a href="{% url 'e_commerce:login' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-box-arrow-in-right"></i> Se connecter
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sellerCheckbox = document.getElementById('{{ form.become_seller.id_for_label }}');
+    const sellerFields = document.getElementById('seller-fields');
+    
+    sellerCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            sellerFields.style.display = 'block';
+            // Make seller fields required
+            const requiredFields = sellerFields.querySelectorAll('input[style*="display: none"], textarea[style*="display: none"]');
+            requiredFields.forEach(field => {
+                field.style.display = 'block';
+                field.required = true;
+            });
+        } else {
+            sellerFields.style.display = 'none';
+            // Make seller fields not required
+            const requiredFields = sellerFields.querySelectorAll('input, textarea');
+            requiredFields.forEach(field => {
+                field.required = false;
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

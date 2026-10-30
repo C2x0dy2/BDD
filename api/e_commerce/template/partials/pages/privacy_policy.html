@@ -1,0 +1,113 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Politique de Confidentialité - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h1 class="display-5 mb-4 text-center">
+                        <i class="bi bi-shield-check text-primary"></i> Politique de Confidentialité
+                    </h1>
+                    
+                    <p class="text-muted text-center mb-5">
+                        Dernière mise à jour : {% now "d F Y" %}
+                    </p>
+                    
+                    <div class="content">
+                        <h2 class="h4 mb-3">1. Introduction</h2>
+                        <p>
+                            SÎKÂ s'engage à protéger la confidentialité de ses utilisateurs. Cette politique de confidentialité 
+                            explique comment nous collectons, utilisons, stockons et protégeons vos informations personnelles.
+                        </p>
+                        
+                        <h2 class="h4 mb-3 mt-4">2. Informations Collectées</h2>
+                        <p>Nous collectons les informations suivantes :</p>
+                        <ul>
+                            <li><strong>Informations personnelles :</strong> nom, prénom, adresse email, numéro de téléphone</li>
+                            <li><strong>Informations de compte :</strong> nom d'utilisateur, mot de passe (hashé)</li>
+                            <li><strong>Informations de commande :</strong> adresse de livraison, méthode de paiement</li>
+                            <li><strong>Informations techniques :</strong> adresse IP, type de navigateur, données de navigation</li>
+                        </ul>
+                        
+                        <h2 class="h4 mb-3 mt-4">3. Utilisation des Informations</h2>
+                        <p>Nous utilisons vos informations pour :</p>
+                        <ul>
+                            <li>Traiter vos commandes et gérer votre compte</li>
+                            <li>Vous envoyer des notifications importantes concernant vos commandes</li>
+                            <li>Améliorer nos services et personnaliser votre expérience</li>
+                            <li>Vous contacter en cas de besoin (support client)</li>
+                        </ul>
+                        
+                        <h2 class="h4 mb-3 mt-4">4. Sécurité des Données</h2>
+                        <p>
+                            Nous mettons en œuvre des mesures de sécurité appropriées pour protéger vos informations 
+                            personnelles contre l'accès non autorisé, la modification, la divulgation ou la destruction.
+                        </p>
+                        
+                        <h2 class="h4 mb-3 mt-4">5. Partage des Informations</h2>
+                        <p>
+                            Nous ne vendons, n'échangeons ni ne louons vos informations personnelles à des tiers. 
+                            Nous pouvons partager vos informations uniquement avec des vendeurs dans le cadre de 
+                            l'exécution de vos commandes.
+                        </p>
+                        
+                        <h2 class="h4 mb-3 mt-4">6. Vos Droits</h2>
+                        <p>Vous avez le droit de :</p>
+                        <ul>
+                            <li>Accéder à vos informations personnelles</li>
+                            <li>Modifier vos informations personnelles</li>
+                            <li>Demander la suppression de votre compte</li>
+                            <li>Vous opposer à certains traitements de vos données</li>
+                        </ul>
+                        
+                        <h2 class="h4 mb-3 mt-4">7. Cookies</h2>
+                        <p>
+                            Notre site utilise des cookies pour améliorer votre expérience. Vous pouvez configurer 
+                            votre navigateur pour refuser les cookies, mais cela peut affecter certaines fonctionnalités.
+                        </p>
+                        
+                        <h2 class="h4 mb-3 mt-4">8. Modifications de la Politique</h2>
+                        <p>
+                            Nous nous réservons le droit de modifier cette politique de confidentialité à tout moment. 
+                            Les modifications seront publiées sur cette page avec une nouvelle date de mise à jour.
+                        </p>
+                        
+                        <h2 class="h4 mb-3 mt-4">9. Contact</h2>
+                        <p>
+                            Pour toute question concernant cette politique de confidentialité, vous pouvez nous contacter à :
+                        </p>
+                        <p>
+                            <strong>Email :</strong> majokossonou@gmail.com<br>
+                            <strong>Téléphone :</strong> +225 070 864 2974
+                        </p>
+                    </div>
+                    
+                    <div class="text-center mt-5">
+                        <a href="{% url 'e_commerce:register' %}" class="btn btn-primary">
+                            <i class="bi bi-arrow-left"></i> Retour à l'inscription
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.content {
+    line-height: 1.8;
+}
+.content ul {
+    margin-left: 1.5rem;
+}
+.content li {
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}
+
+

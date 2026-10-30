@@ -1,0 +1,105 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Modifier Statut - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-pencil-square"></i> Modifier le statut de la commande</h2>
+        <a href="{% url 'e_commerce:seller_orders' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour aux commandes
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Commande #{{ order.order_number }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="status" class="form-label">
+                                <strong>Nouveau statut de la commande</strong>
+                            </label>
+                            <select name="status" id="status" class="form-select form-select-lg">
+                                {% for status_code, status_name in status_choices %}
+                                    <option value="{{ status_code }}" 
+                                            {% if order.status == status_code %}selected{% endif %}>
+                                        {{ status_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn">
+                                <i class="bi bi-check-circle"></i> Mettre à jour le statut
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Order Details -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">Détails de la commande</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Client:</strong> {{ order.user.get_full_name|default:order.user.username }}</p>
+                    <p><strong>Email:</strong> {{ order.user.email }}</p>
+                    <p><strong>Téléphone:</strong> {{ order.phone }}</p>
+                    <p><strong>Adresse:</strong> {{ order.delivery_address }}</p>
+                    <p><strong>Méthode de paiement:</strong> {{ order.get_payment_method_display }}</p>
+                    <p><strong>Date de commande:</strong> {{ order.created_at|date:"d/m/Y H:i" }}</p>
+                    {% if order.notes %}
+                        <p><strong>Notes:</strong> {{ order.notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Seller Products -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">Vos produits dans cette commande</h6>
+                </div>
+                <div class="card-body">
+                    {% for item in seller_items %}
+                        <div class="mb-3 border-bottom pb-3">
+                            <div class="d-flex justify-content-between">
+                                <span><strong>{{ item.product.name }}</strong></span>
+                                <span class="text-success">{{ item.get_total|floatformat:0 }} FCFA</span>
+                            </div>
+                            <small class="text-muted">
+                                {{ item.quantity }} x {{ item.price|floatformat:0 }} FCFA
+                            </small>
+                        </div>
+                    {% endfor %}
+                    
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <strong>Total de vos produits:</strong>
+                        <strong class="text-success">
+                            {% with seller_total=0 %}
+                                {% for item in seller_items %}
+                                    {% with seller_total=seller_total|add:item.get_total %}{% endwith %}
+                                {% endfor %}
+                                {{ seller_total|floatformat:0 }} FCFA
+                            {% endwith %}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

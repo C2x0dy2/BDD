@@ -1,0 +1,100 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Confirmation - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-5">
+                <div class="bg-success rounded-circle d-inline-flex align-items-center justify-content-center" 
+                     style="width: 80px; height: 80px;">
+                    <i class="bi bi-check-circle text-white" style="font-size: 3rem;"></i>
+                </div>
+                <h2 class="mt-3">Commande confirmée!</h2>
+                <p class="text-muted">Merci pour votre commande #{{ order.order_number }}</p>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-receipt"></i> Détails de la commande
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Numéro de commande:</strong><br>
+                            <code>{{ order.order_number }}</code>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Date:</strong><br>
+                            {{ order.created_at|date:"d/m/Y à H:i" }}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6>Articles commandés:</h6>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Produit</th>
+                                <th>Quantité</th>
+                                <th class="text-end">Prix</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order.items.all %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td class="text-end">
+                                        {{ item.get_total|floatformat:0 }} FCFA
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-success">
+                                <th colspan="2">Total:</th>
+                                <th class="text-end">{{ order.total_amount|floatformat:0 }} FCFA</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Informations de livraison:</h6>
+                            <p class="mb-0">{{ order.delivery_address }}</p>
+                            <small class="text-muted">Tél: {{ order.phone }}</small>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Méthode de paiement:</h6>
+                            <p class="mb-0">{{ order.get_payment_method_display }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4 mb-0">
+                        <i class="bi bi-info-circle"></i> 
+                        Un email de confirmation a été envoyé à votre adresse. 
+                        Nous vous contacterons bientôt pour confirmer votre commande.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 mt-4">
+                <a href="{% url 'e_commerce:my_orders' %}" class="btn btn-primary">
+                    <i class="bi bi-list-ul"></i> Voir mes commandes
+                </a>
+                <a href="{% url 'e_commerce:product_list' %}" class="btn btn-outline-primary">
+                    Continuer les achats
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

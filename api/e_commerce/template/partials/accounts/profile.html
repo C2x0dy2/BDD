@@ -1,0 +1,100 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Mon Profil - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4"><i class="bi bi-person"></i> Mon Profil</h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-circle text-primary" style="font-size: 5rem;"></i>
+                    <h4 class="mt-3">{{ user.get_full_name|default:user.username }}</h4>
+                    <p class="text-muted">@{{ user.username }}</p>
+                    {% if user.is_seller %}
+                        <span class="badge bg-success">Vendeur</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Client</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-gear"></i> Actions rapides
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'e_commerce:my_orders' %}" class="list-group-item">
+                        <i class="bi bi-bag-check"></i> Mes commandes
+                    </a>
+                    <a href="{% url 'e_commerce:cart' %}" class="list-group-item">
+                        <i class="bi bi-cart3"></i> Mon panier
+                    </a>
+                    {% if user.is_seller %}
+                        <a href="{% url 'e_commerce:seller_dashboard' %}" class="list-group-item">
+                            <i class="bi bi-speedometer2"></i> Dashboard vendeur
+                        </a>
+                    {% else %}
+                        <a href="{% url 'e_commerce:become_seller' %}" class="list-group-item">
+                            <i class="bi bi-shop"></i> Devenir vendeur
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-info-circle"></i> Informations personnelles
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <tr>
+                            <th width="30%">Nom d'utilisateur:</th>
+                            <td>{{ user.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ user.email }}</td>
+                        </tr>
+                        <tr>
+                            <th>Prénom:</th>
+                            <td>{{ user.first_name|default:"Non renseigné" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Nom:</th>
+                            <td>{{ user.last_name|default:"Non renseigné" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Téléphone:</th>
+                            <td>{{ user.phone|default:"Non renseigné" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Adresse:</th>
+                            <td>{{ user.address|default:"Non renseignée" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Inscrit le:</th>
+                            <td>{{ user.date_joined|date:"d/m/Y à H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email vérifié:</th>
+                            <td>
+                                {% if user.is_email_verified %}
+                                    <span class="badge bg-success">Oui</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Non</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

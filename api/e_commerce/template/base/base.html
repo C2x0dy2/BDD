@@ -1,0 +1,292 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SÎKÂ - Plateforme E-commerce{% endblock %}</title>
+    
+    <!-- Bootswatch (Lux theme) built on Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/lux/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Theme CSS -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    
+    <!-- Custom CSS -->
+    {% block extra_css %}{% endblock %}
+    
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+        .product-card {
+            transition: transform 0.2s;
+            height: 100%;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+        .badge-notification {
+            position: absolute;
+            top: 0;
+            right: 0;
+            transform: translate(50%, -50%);
+        }
+        .search-bar {
+            max-width: 500px;
+        }
+        
+        /* Arrondir tous les boutons */
+        .btn {
+            border-radius: 0.5rem !important;
+        }
+        
+        /* Excepter les boutons de connexion et inscription */
+        .nav-auth-btn {
+            border-radius: 0 !important;
+        }
+        
+        /* Arrondir la barre de recherche */
+        .form-control {
+            border-radius: 0.5rem !important;
+        }
+        
+        /* Arrondir les inputs et textarea */
+        input[type="text"],
+        input[type="password"],
+        input[type="search"],
+        input[type="tel"],
+        input[type="number"],
+        input[type="file"],
+        textarea,
+        select {
+            border-radius: 0.5rem !important;
+        }
+    </style>
+</head>
+<body style="font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'e_commerce:home' %}">
+                <i class="bi bi-bag-heart"></i> SÎKÂ
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Search Bar -->
+                <form class="d-flex search-bar me-3 flex-grow-1" action="{% url 'e_commerce:product_list' %}" method="get" style="min-width:280px;">
+                    <input class="form-control me-2 w-100" type="search" name="q" placeholder="Rechercher un produit..." 
+                           value="{{ request.GET.q }}" aria-label="Search">
+                    <button class="btn btn-outline-light" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </form>
+                
+                <ul class="navbar-nav flex-row me-auto align-items-center gap-3">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'e_commerce:home' %}">
+                            Accueil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'e_commerce:product_list' %}">
+                            Catégories
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'e_commerce:about' %}">
+                            À propos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'e_commerce:contact' %}">
+                            Contact
+                        </a>
+                    </li>
+
+
+                </ul>
+                
+                <ul class="navbar-nav ms-auto align-items-center gap-2">
+                    {% if user.is_authenticated %}
+                        <!-- Wishlist -->
+                        <li class="nav-item">
+                            <a class="nav-link position-relative" href="{% url 'e_commerce:wishlist' %}">
+                                <i class="bi bi-heart"></i> Favoris
+                                {% if user.wishlist.exists %}
+                                    <span class="badge bg-danger rounded-pill badge-notification">
+                                        {{ user.wishlist.count }}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <!-- Cart -->
+                        <li class="nav-item">
+                            <a class="nav-link position-relative" href="{% url 'e_commerce:cart' %}">
+                                <i class="bi bi-cart3"></i> Panier
+                                {% if user.carts.exists %}
+                                    <span class="badge bg-danger rounded-pill badge-notification">
+                                        {{ user.carts.first.items.count }}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        
+                        <!-- User Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
+                               role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person-circle"></i> {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" 
+                                aria-labelledby="userDropdown">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'e_commerce:profile' %}">
+                                        <i class="bi bi-person"></i> Mon Profil
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'e_commerce:my_orders' %}">
+                                        <i class="bi bi-bag-check"></i> Mes Commandes
+                                    </a>
+                                </li>
+                                {% if user.is_seller %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'e_commerce:seller_dashboard' %}">
+                                            <i class="bi bi-speedometer2"></i> Dashboard Vendeur
+                                        </a>
+                                    </li>
+                                {% elif not user.is_seller %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'e_commerce:become_seller' %}">
+                                            <i class="bi bi-shop"></i> Devenir Vendeur
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{% url 'e_commerce:logout' %}">
+                                        <i class="bi bi-box-arrow-right"></i> Déconnexion
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <div class="btn-group" role="group">
+                                <a class="btn btn-outline-light btn-sm nav-auth-btn" href="{% url 'e_commerce:login' %}">Connexion</a>
+                                <a class="btn btn-light btn-sm nav-auth-btn" href="{% url 'e_commerce:register' %}">Inscription</a>
+                            </div>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Messages -->
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer mt-auto">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <h5><i class="bi bi-bag-heart"></i> SÎKÂ</h5>
+                    <p>Votre plateforme e-commerce de confiance à Babi.</p>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <h5>Liens Rapides</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'e_commerce:home' %}" class="text-white-50">Accueil</a></li>
+                        <li><a href="{% url 'e_commerce:product_list' %}" class="text-white-50">Produits</a></li>
+                        <li><a href="{% url 'e_commerce:about' %}" class="text-white-50">A propos</a></li>
+                        <li><a href="{% url 'e_commerce:contact' %}" class="text-white-50">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <h5>Contact</h5>
+                    <p class="mb-0">Email: majokossonou@gmail.com</p>
+                    <p>Téléphone: +225 070 864 2974</p>
+                </div>
+            </div>
+            <hr class="bg-white">
+            <div class="text-center">
+                <p>&copy; {% now "Y" %} SÎKÂ. Tous droits réservés.</p>
+                <p class="mb-0">
+                    <a href="{% url 'e_commerce:privacy_policy' %}" class="text-white-50 text-decoration-none">
+                        <i class="bi bi-shield-check"></i> Politique de Confidentialité
+                    </a>
+                </p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- CSRF Token Helper -->
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+    </script>
+    
+    <!-- Auto-dismiss messages after 6 seconds -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 6000); // 6 secondes
+            });
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

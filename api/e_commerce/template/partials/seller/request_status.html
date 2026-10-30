@@ -1,0 +1,99 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Statut de la demande - SÎKÂ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4"><i class="bi bi-clock-history"></i> Statut de votre demande</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header 
+                    {% if seller_request.status == 'approved' %}bg-success
+                    {% elif seller_request.status == 'rejected' %}bg-danger
+                    {% else %}bg-warning
+                    {% endif %} text-white">
+                    <h5 class="mb-0">
+                        {% if seller_request.status == 'approved' %}
+                            <i class="bi bi-check-circle"></i> Demande approuvée
+                        {% elif seller_request.status == 'rejected' %}
+                            <i class="bi bi-x-circle"></i> Demande rejetée
+                        {% else %}
+                            <i class="bi bi-hourglass-split"></i> En attente
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6>Nom de la boutique:</h6>
+                        <p class="fs-5">{{ seller_request.store_name }}</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>Description:</h6>
+                        <p>{{ seller_request.description }}</p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>Téléphone:</h6>
+                            <p>{{ seller_request.phone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Adresse:</h6>
+                            <p>{{ seller_request.address }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>Date de soumission:</h6>
+                            <p>{{ seller_request.created_at|date:"d/m/Y à H:i" }}</p>
+                        </div>
+                        {% if seller_request.reviewed_at %}
+                            <div class="col-md-6">
+                                <h6>Date de traitement:</h6>
+                                <p>{{ seller_request.reviewed_at|date:"d/m/Y à H:i" }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if seller_request.status == 'pending' %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle"></i>
+                            Votre demande est en cours d'examen. Vous recevrez un email une fois la décision prise.
+                        </div>
+                    {% elif seller_request.status == 'approved' %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i>
+                            Félicitations! Votre demande a été approuvée. 
+                            Vous pouvez maintenant accéder à votre tableau de bord vendeur.
+                        </div>
+                        <a href="{% url 'e_commerce:seller_dashboard' %}" class="btn btn-success">
+                            <i class="bi bi-speedometer2"></i> Accéder au Dashboard
+                        </a>
+                    {% elif seller_request.status == 'rejected' %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-circle"></i>
+                            Votre demande n'a pas été approuvée pour le moment. 
+                            Vous pouvez nous contacter pour plus d'informations.
+                        </div>
+                    {% endif %}
+                    
+                    <hr>
+                    <a href="{% url 'e_commerce:profile' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Retour au profil
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
