@@ -51,8 +51,14 @@ curl http://localhost:8000/api/reports/sales-by-category/
 | Site e-commerce | http://localhost:8000/            |
 | Admin Django (Jazzmin) | http://localhost:8000/admin/ |
 | API            | http://localhost:8000/api/        |
-| Adminer (Postgres) | http://localhost:8090 (système : PostgreSQL, serveur : `db`, utilisateur : `postgres_admin`, mot de passe : `postgres_admin_pw`, base : `sika`) |
+| Adminer (Postgres) | http://localhost:8090 (système : PostgreSQL, serveur : `db`, base : `sika`, utilisateur et mot de passe : `POSTGRES_USER` / `POSTGRES_PASSWORD` de votre `.env`) |
 | Mongo Express  | http://localhost:8091             |
+
+Aucun mot de passe n'est versionné : tous les identifiants (PostgreSQL,
+MongoDB avec authentification activée) viennent du fichier `.env`, copié
+depuis `.env.example`. Si vous aviez déjà lancé une version précédente de
+la pile (MongoDB sans authentification), repartez de zéro avec
+`docker compose down -v`.
 
 Comptes de démonstration : tous les comptes créés par `seed_demo_data`
 (`user1@example.com` à `user1000@example.com`, les 30 premiers étant des
@@ -81,9 +87,10 @@ Rapports (requêtes SQL avancées, lecture seule) :
 - `GET /api/reports/order-status-breakdown/`
 
 MongoDB (CRUD + filtres sur champs imbriqués) :
-- `GET/PUT /api/products/{id}/specs/`
+- `GET/PUT/DELETE /api/products/{id}/specs/`
 - `GET /api/specs/search/?category=&color=&min_weight=&max_weight=`
 - `GET/POST /api/products/{id}/reviews/` (`?min_rating=&has_replies=`)
+- `GET/PUT/DELETE /api/products/{id}/reviews/{user_id}/` (un avis = une paire produit/utilisateur)
 - `GET /api/products/{id}/reviews/stats/` (pipeline d'agrégation)
 
 Endpoint croisé (PostgreSQL + MongoDB) :
@@ -99,8 +106,22 @@ Endpoint croisé (PostgreSQL + MongoDB) :
 /api/reviews             MongoDB (pymongo direct) : specs produit + avis, utilisé par le site ET l'API
 /api/reports              Rapports SQL avancés (lecture seule), exposés en API
 /docker                docker-compose.yml
-/docs                  Document de présentation, schémas, vidéo
+/docs                  Document de présentation, schémas (docs/schemas), vidéo (docs/video)
 ```
+
+Écart assumé avec l'arborescence type du sujet : il n'y a pas de dossiers
+`docker/init-sql` et `docker/init-nosql`. La création et le peuplement des
+deux bases sont faits par des commandes Django exécutées automatiquement
+par `api/entrypoint.sh` :
+
+| Rôle | Fichier |
+|------|---------|
+| Tables, clés, contraintes (SQL) | `api/e_commerce/migrations/` |
+| Vue, index, trigger, CHECK, rôle restreint (SQL) | `api/e_commerce/management/commands/setup_relational_extras.py` |
+| Index MongoDB | `api/reviews/services.py` (`ensure_indexes`) |
+| Peuplement PostgreSQL + MongoDB | `api/e_commerce/management/commands/seed_demo_data.py` |
+
+Le script SQL complet (MPD) est reproduit dans `docs/presentation.md` §3.
 
 ## Outils IA utilisés
 

@@ -192,15 +192,16 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': _POSTGRES_DB,
         'USER': os.environ.get('POSTGRES_APP_USER', 'commerce_app'),
-        'PASSWORD': os.environ.get('POSTGRES_APP_PASSWORD', 'commerce_app_pw'),
+        # No default on purpose: secrets come from .env (see .env.example).
+        'PASSWORD': os.environ['POSTGRES_APP_PASSWORD'],
         'HOST': _POSTGRES_HOST,
         'PORT': _POSTGRES_PORT,
     },
     'migration': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': _POSTGRES_DB,
-        'USER': os.environ.get('POSTGRES_OWNER_USER', 'postgres_admin'),
-        'PASSWORD': os.environ.get('POSTGRES_OWNER_PASSWORD', 'postgres_admin_pw'),
+        'USER': os.environ['POSTGRES_USER'],
+        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
         'HOST': _POSTGRES_HOST,
         'PORT': _POSTGRES_PORT,
     },
@@ -208,7 +209,7 @@ DATABASES = {
 
 # MongoDB (non-relational store) -- read directly via pymongo in the
 # `reviews` app, not through the Django ORM.
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://mongo:27017')
+MONGO_URI = os.environ['MONGO_URI']  # includes credentials, from .env
 MONGO_DB_NAME = os.environ.get('MONGO_DB_NAME', 'sika')
 
 

@@ -102,17 +102,128 @@ e_commerce_orderitem(id, order_id -> order.id, product_id -> product.id, quantit
 e_commerce_wishlist(id, user_id -> user.id, product_id -> product.id, created_at)
 ```
 
-### MPD (script de création)
+### MPD (script de création commenté)
 
 Les tables sont créées par les migrations Django
-(`api/e_commerce/migrations/0001_initial.py` et suivantes) : clés primaires
-auto-incrémentées, clés étrangères (`on_delete=PROTECT/CASCADE/SET_NULL`
-selon le sens métier), `unique=True` (email, slug produit, numéro de
-commande), et des contraintes `CHECK` générées automatiquement par Django
-pour tous les champs `PositiveIntegerField` (stock, quantité). Par-dessus,
-`setup_relational_extras.py` ajoute une contrainte `CHECK` explicite
-supplémentaire (`price >= 0` sur `e_commerce_product`), une vue, un index,
-et un trigger -- détaillés en section 7.
+(`api/e_commerce/migrations/0001_initial.py` et suivantes). Le script
+ci-dessous est le DDL PostgreSQL équivalent pour les tables principales
+(reconstitué à partir de `models.py`, colonnes secondaires omises ; les noms
+d'index et de contraintes générés par Django sont simplifiés). Schémas
+graphiques : [`schemas/mld.svg`](schemas/mld.svg) et
+[`schemas/architecture.svg`](schemas/architecture.svg).
+
+```sql
+-- Catégories : slug unique pour des URL stables
+CREATE TABLE e_commerce_category (
+    id          BIGSERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL UNIQUE,
+    slug        VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL
+);
+
+-- Utilisateurs (clients, vendeurs, admin) : email unique
+CREATE TABLE e_commerce_user (
+    id                 BIGSERIAL PRIMARY KEY,
+    username           VARCHAR(150) NOT NULL UNIQUE,
+    email              VARCHAR(254) NOT NULL UNIQUE,
+    password           VARCHAR(128) NOT NULL,   -- hash, jamais en clair
+    is_seller          BOOLEAN NOT NULL,
+    is_seller_approved BOOLEAN NOT NULL,
+    created_at         TIMESTAMPTZ NOT NULL
+    -- + first_name, last_name, phone, address, store_* ...
+);
+
+-- Produits : prix décimal (pas de float pour l'argent), stock >= 0.
+-- Catégorie supprimée -> produit conservé (SET NULL) ;
+-- vendeur supprimé -> ses produits le sont aussi (CASCADE).
+CREATE TABLE e_commerce_product (
+    id          BIGSERIAL PRIMARY KEY,
+    name        VARCHAR(200) NOT NULL,
+    slug        VARCHAR(220) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    price       NUMERIC(10,2) NOT NULL,
+    stock       INTEGER NOT NULL CHECK (stock >= 0),
+    is_active   BOOLEAN NOT NULL,
+    category_id BIGINT REFERENCES e_commerce_category(id) ON DELETE SET NULL,
+    seller_id   BIGINT NOT NULL REFERENCES e_commerce_user(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL,
+    updated_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX ON e_commerce_product (category_id);   -- index FK auto Django
+CREATE INDEX ON e_commerce_product (seller_id);
+
+-- Commandes : numéro unique ; total_amount maintenu par trigger (voir plus bas)
+CREATE TABLE e_commerce_order (
+    id             BIGSERIAL PRIMARY KEY,
+    order_number   VARCHAR(20) NOT NULL UNIQUE,
+    user_id        BIGINT NOT NULL REFERENCES e_commerce_user(id) ON DELETE CASCADE,
+    status         VARCHAR(20) NOT NULL,
+    payment_status VARCHAR(20) NOT NULL,
+    total_amount   NUMERIC(10,2) NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL
+    -- + payment_method, delivery_address, phone, notes ...
+);
+
+-- Lignes de commande : le prix est copié au moment de l'achat (historique
+-- stable même si le prix du produit change). Produit supprimé -> SET NULL.
+CREATE TABLE e_commerce_orderitem (
+    id         BIGSERIAL PRIMARY KEY,
+    order_id   BIGINT NOT NULL REFERENCES e_commerce_order(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES e_commerce_product(id) ON DELETE SET NULL,
+    quantity   INTEGER NOT NULL CHECK (quantity >= 0),
+    price      NUMERIC(10,2) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+
+-- Panier et liste de souhaits : un seul enregistrement par (panier, produit)
+-- et par (utilisateur, produit)
+CREATE TABLE e_commerce_cartitem (
+    id         BIGSERIAL PRIMARY KEY,
+    cart_id    BIGINT NOT NULL,       -- FK e_commerce_cart ON DELETE CASCADE
+    product_id BIGINT NOT NULL REFERENCES e_commerce_product(id) ON DELETE CASCADE,
+    quantity   INTEGER NOT NULL CHECK (quantity >= 0),
+    UNIQUE (cart_id, product_id)
+);
+CREATE TABLE e_commerce_wishlist (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES e_commerce_user(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES e_commerce_product(id) ON DELETE CASCADE,
+    UNIQUE (user_id, product_id)
+);
+-- + e_commerce_tag, e_commerce_product_tags (N-N), e_commerce_productimage,
+--   e_commerce_cart, e_commerce_sellerrequest
+```
+
+Par-dessus, `setup_relational_extras.py` (exécuté à chaque démarrage,
+idempotent) ajoute :
+
+```sql
+-- CHECK explicite : un prix ne peut pas être négatif
+ALTER TABLE e_commerce_product
+    ADD CONSTRAINT product_price_non_negative CHECK (price >= 0);
+
+-- Index choisi volontairement (mesuré en section 7)
+CREATE INDEX IF NOT EXISTS idx_order_created_at ON e_commerce_order (created_at);
+
+-- Vue utilisée par GET /api/reports/sales-by-category/
+CREATE OR REPLACE VIEW category_sales_view AS ...;   -- LEFT JOIN + GROUP BY
+
+-- Logique serveur : total_amount recalculé à chaque changement de ligne
+CREATE OR REPLACE FUNCTION recalc_order_total() RETURNS TRIGGER AS $$ ... $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_recalc_order_total
+AFTER INSERT OR UPDATE OR DELETE ON e_commerce_orderitem
+FOR EACH ROW EXECUTE FUNCTION recalc_order_total();
+
+-- Rôle applicatif : DML uniquement, pas de DDL, pas superutilisateur.
+-- Le mot de passe vient de POSTGRES_APP_PASSWORD (.env), pas du script.
+CREATE ROLE commerce_app LOGIN;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO commerce_app;
+```
+
+Le corps complet de la vue et du trigger est dans
+`api/e_commerce/management/commands/setup_relational_extras.py`.
 
 ## 4. Modèle non relationnel (MongoDB)
 
@@ -164,6 +275,9 @@ produit côté Postgres (`_require_product`).
 Index créés :
 - `product_specs` : unique sur `product_id`.
 - `reviews` : composé sur `{product_id: 1, created_at: -1}`.
+
+CRUD complet exposé par l'API : lecture, création/mise à jour (`PUT`,
+`POST`) et suppression (`DELETE`) sur les deux collections.
 
 Pipeline d'agrégation : `$group` par `product_id` pour la note moyenne et
 le nombre d'avis (`rating_stats`), variante `$group`/`$sort` pour la
@@ -297,10 +411,14 @@ plus proche d'un volume réel.
 ## 8. Stratégie de sauvegarde
 
 - **PostgreSQL** : sauvegarde logique via `pg_dump` du volume nommé
-  `pgdata` (ex. `docker compose exec db pg_dump -U postgres_admin sika >
-  backup.sql`), restauration via `psql -U postgres_admin sika <
-  backup.sql` sur une base vide.
-- **MongoDB** : `mongodump --db sika`, restauration via `mongorestore`.
+  `pgdata` (ex. `docker compose exec db sh -c 'pg_dump -U $POSTGRES_USER
+  sika' > backup.sql`), restauration via `docker compose exec -T db sh -c
+  'psql -U $POSTGRES_USER sika' < backup.sql` sur une base vide.
+- **MongoDB** : `docker compose exec mongo sh -c 'mongodump --archive
+  -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD
+  --authenticationDatabase admin --db sika' > mongo.archive`, restauration
+  avec `mongorestore --archive` (mêmes options d'authentification) en
+  redirigeant le fichier sur l'entrée standard.
 - **Médias** (images produit/vendeur) : volume nommé `media_data`, à
   sauvegarder avec un simple `docker run --rm -v
   docker_media_data:/data -v $(pwd):/backup busybox tar czf
@@ -317,9 +435,10 @@ plus proche d'un volume réel.
   côté Postgres ne purge pas automatiquement ses documents Mongo associés
   (`product_specs`, `reviews`). Une tâche de nettoyage périodique ou un
   flux d'événements (CDC) serait nécessaire en production.
-- **MongoDB sans authentification** : accepté pour ce projet académique
-  où seul le réseau Docker interne y accède ; à corriger avant tout usage
-  réel (utilisateur applicatif dédié, symétrique de `commerce_app`).
+- **MongoDB avec un seul compte administrateur** : l'authentification est
+  activée (identifiants dans `.env`), mais l'application utilise le compte
+  root de l'instance. Un utilisateur applicatif limité à la base `sika`
+  (rôle `readWrite`), symétrique de `commerce_app`, serait la suite logique.
 - **API sans authentification** : les endpoints `/api/` sont ouverts (le
   site HTML, lui, a sa propre authentification par session) ; une vraie
   mise en production ajouterait une authentification par token sur l'API

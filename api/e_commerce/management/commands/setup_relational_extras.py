@@ -11,6 +11,8 @@ IF NOT EXISTS / DROP-then-ADD everywhere).
 Must run against the 'migration' database alias (owner role with DDL
 rights) -- the 'default' alias (commerce_app) intentionally cannot do DDL.
 """
+import os
+
 from django.core.management.base import BaseCommand
 from django.db import connections
 
@@ -83,11 +85,12 @@ EXECUTE FUNCTION recalc_order_total();
 -- Restricted application role: the Django API connects as this role at
 -- runtime (settings.DATABASES['default']), never as the bootstrap owner
 -- used for migrate/this command. DML only, no DDL, no ownership.
--- Demo credentials for a student project -- not meant for production use.
+-- The password is set separately in handle() from the environment, so no
+-- secret lives in this file.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'commerce_app') THEN
-        CREATE ROLE commerce_app LOGIN PASSWORD 'commerce_app_pw';
+        CREATE ROLE commerce_app LOGIN;
     END IF;
 END
 $$;
@@ -107,6 +110,14 @@ class Command(BaseCommand):
         connection = connections["migration"]
         with connection.cursor() as cursor:
             cursor.execute(SQL)
+            # Role names cannot be bound as parameters, but the password
+            # literal can; it is rebuilt from the env on every start so a
+            # rotated .env value takes effect.
+            cursor.execute(
+                "SELECT format('ALTER ROLE commerce_app PASSWORD %%L', %s)",
+                [os.environ["POSTGRES_APP_PASSWORD"]],
+            )
+            cursor.execute(cursor.fetchone()[0])
         self.stdout.write(self.style.SUCCESS(
             "setup_relational_extras: view, index, trigger, constraint and commerce_app role are in place."
         ))

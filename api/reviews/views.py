@@ -33,6 +33,12 @@ class ProductSpecsView(APIView):
         return Response(services.get_product_specs(product_id))
 
 
+    def delete(self, request, product_id):
+        if not services.delete_product_specs(product_id):
+            return Response({"detail": "No specs for this product."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class ProductSpecsSearchView(APIView):
     """Cross-catalog search over the embedded, category-dependent
     attributes -- demonstrates filtering on nested fields with operators
@@ -78,6 +84,38 @@ class ProductReviewsView(APIView):
         )
         doc = services.get_user_review(product_id, serializer.validated_data["user_id"])
         return Response(doc, status=status.HTTP_201_CREATED)
+
+
+class ProductReviewDetailView(APIView):
+    """One review = one (product, user) pair, so it is addressed by both."""
+
+    def get(self, request, product_id, user_id):
+        doc = services.get_user_review(product_id, user_id)
+        if doc is None:
+            return Response({"detail": "Review not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(doc)
+
+    def put(self, request, product_id, user_id):
+        if services.get_user_review(product_id, user_id) is None:
+            return Response({"detail": "Review not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.copy()
+        data["user_id"] = user_id
+        serializer = ReviewSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        services.upsert_review(
+            product_id,
+            user_id,
+            serializer.validated_data["rating"],
+            serializer.validated_data["comment"],
+        )
+        return Response(services.get_user_review(product_id, user_id))
+
+    def delete(self, request, product_id, user_id):
+        if not services.delete_review(product_id, user_id):
+            return Response({"detail": "Review not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProductReviewStatsView(APIView):

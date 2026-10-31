@@ -2,20 +2,19 @@ services:
   db:
     image: postgres:16
     restart: unless-stopped
-    environment:
-      # Bootstrap/owner role: only used by the api entrypoint to run
-      # `migrate` and setup_relational_extras (DDL rights). The running
-      # application connects as the restricted commerce_app role instead
-      # (created by setup_relational_extras), never with this account.
-      POSTGRES_USER: postgres_admin
-      POSTGRES_PASSWORD: postgres_admin_pw
-      POSTGRES_DB: sika
+    # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB come from ../.env.
+    # This bootstrap/owner role is only used by the api entrypoint to run
+    # `migrate` and setup_relational_extras (DDL rights). The running
+    # application connects as the restricted commerce_app role instead
+    # (created by setup_relational_extras), never with this account.
+    env_file:
+      - ../.env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres_admin -d sika"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,6 +22,10 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD from ../.env
+    # turn authentication on (the api connects with these credentials).
+    env_file:
+      - ../.env
     environment:
       MONGO_INITDB_DATABASE: sika
     volumes:
@@ -43,12 +46,6 @@ services:
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: sika
-      POSTGRES_OWNER_USER: postgres_admin
-      POSTGRES_OWNER_PASSWORD: postgres_admin_pw
-      POSTGRES_APP_USER: commerce_app
-      POSTGRES_APP_PASSWORD: commerce_app_pw
-      MONGO_URI: mongodb://mongo:27017
       MONGO_DB_NAME: sika
     volumes:
       - media_data:/app/media
@@ -71,13 +68,15 @@ services:
   mongo-express:
     image: mongo-express
     restart: unless-stopped
+    env_file:
+      - ../.env   # ME_CONFIG_MONGODB_URL (with credentials)
     environment:
-      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/
       ME_CONFIG_BASICAUTH: "false"
     ports:
       - "8091:8081"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
 volumes:
   pgdata:

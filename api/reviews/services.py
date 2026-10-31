@@ -58,6 +58,17 @@ def upsert_review(product_id, user_id, rating, comment):
     )
 
 
+def delete_review(product_id, user_id):
+    """Returns True if a review was removed, False if there was none."""
+    result = reviews_collection().delete_one({"product_id": product_id, "user_id": user_id})
+    return result.deleted_count == 1
+
+
+def delete_product_specs(product_id):
+    result = product_specs_collection().delete_one({"product_id": product_id})
+    return result.deleted_count == 1
+
+
 def rating_stats(product_id):
     pipeline = [
         {"$match": {"product_id": product_id}},
