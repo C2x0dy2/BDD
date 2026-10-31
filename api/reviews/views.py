@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -6,6 +7,17 @@ from e_commerce.models import Product
 
 from . import services
 from .serializers import ProductSerializer, ProductSpecsSerializer, ReviewSerializer
+
+
+def _number(request, name, cast):
+    """Optional numeric query parameter; 400 instead of 500 on bad input."""
+    raw = request.query_params.get(name)
+    if raw is None:
+        return None
+    try:
+        return cast(raw)
+    except ValueError:
+        raise ValidationError({name: "Must be a number."})
 
 
 def _require_product(product_id):
@@ -49,8 +61,8 @@ class ProductSpecsSearchView(APIView):
         return Response(services.search_specs(
             category=request.query_params.get("category"),
             color=request.query_params.get("color"),
-            min_weight=request.query_params.get("min_weight"),
-            max_weight=request.query_params.get("max_weight"),
+            min_weight=_number(request, "min_weight", float),
+            max_weight=_number(request, "max_weight", float),
         ))
 
 
@@ -58,9 +70,9 @@ class ProductReviewsView(APIView):
     def get(self, request, product_id):
         docs = services.list_reviews_for_product(product_id)
 
-        min_rating = request.query_params.get("min_rating")
+        min_rating = _number(request, "min_rating", int)
         if min_rating is not None:
-            docs = [d for d in docs if d["rating"] >= int(min_rating)]
+            docs = [d for d in docs if d["rating"] >= min_rating]
 
         has_replies = request.query_params.get("has_replies")
         if has_replies is not None:
