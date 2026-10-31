@@ -190,35 +190,31 @@ def register(request):
     Permet de créer un compte client ou vendeur :
     - Formulaire avec option "Devenir vendeur"
     - Si vendeur: champs supplémentaires (nom boutique, description, etc.)
-    - Envoi d'un email de vérification automatique
-    - Ne connecte PAS l'utilisateur immédiatement (doit vérifier email)
-    - Redirection vers page confirmation envoi email
+    - Compte activé immédiatement, sans vérification email (pas de serveur
+      mail réel configuré pour ce projet de démonstration)
+    - Redirection directe vers la page de connexion
     """
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST, request.FILES)
         if form.is_valid():
-            # Sauvegarder l'utilisateur
-            user = form.save()
-            
-            # Envoyer l'email de vérification (ne pas connecter encore)
-            from .utils import send_email_verification
-            send_email_verification(user, request)
-            
+            # Sauvegarder l'utilisateur, déjà activé (pas de vérification email)
+            user = form.save(commit=False)
+            user.is_email_verified = True
+            user.save()
+
             # Messages différents selon le type de compte
             if user.is_seller:
                 messages.success(
                     request,
-                    'Compte vendeur créé avec succès! '
-                    'Veuillez vérifier votre email pour activer votre compte. '
+                    'Compte vendeur créé avec succès! Vous pouvez vous connecter. '
                     'Votre demande de vendeur sera examinée par notre équipe.'
                 )
             else:
                 messages.success(
                     request,
-                    'Compte créé avec succès! '
-                    'Veuillez vérifier votre email pour activer votre compte.'
+                    'Compte créé avec succès! Vous pouvez vous connecter dès maintenant.'
                 )
-            return redirect('e_commerce:verification_sent')
+            return redirect('e_commerce:login')
     else:
         form = CustomUserCreationForm()
     
