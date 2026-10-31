@@ -64,9 +64,8 @@ trigger/le rôle restreint) et `commerce_app` (DML seulement, utilisé par
 l'application à l'exécution -- voir section 5). Les tables sont créées par
 les migrations Django (le projet SÎKÂ existant avait déjà un historique de
 migrations cohérent) ; la vue, l'index, le trigger et le rôle restreint
-sont ajoutés par-dessus par
-`api/e_commerce/management/commands/setup_relational_extras.py`, exécutée
-à chaque démarrage du conteneur (idempotente).
+sont ajoutés par-dessus par `docker/init-sql/01-extras.sql`, appliqué à chaque
+démarrage du conteneur (idempotent) par la commande `setup_relational_extras`.
 
 `api/reviews/services.py` centralise tout l'accès à MongoDB : le site HTML
 (`e_commerce/views.py`) et l'API JSON (`reviews/views.py`) appellent les
@@ -196,8 +195,8 @@ CREATE TABLE e_commerce_wishlist (
 --   e_commerce_cart, e_commerce_sellerrequest
 ```
 
-Par-dessus, `setup_relational_extras.py` (exécuté à chaque démarrage,
-idempotent) ajoute :
+Par-dessus, `docker/init-sql/01-extras.sql` (appliqué à chaque démarrage par
+`setup_relational_extras`, idempotent) ajoute :
 
 ```sql
 -- CHECK explicite : un prix ne peut pas être négatif
@@ -223,7 +222,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO commerce_
 ```
 
 Le corps complet de la vue et du trigger est dans
-`api/e_commerce/management/commands/setup_relational_extras.py`.
+`docker/init-sql/01-extras.sql`. Le schéma exact produit par les migrations
+puis ce script est dans `docker/init-sql/reference/schema.sql` (sortie de
+`pg_dump --schema-only`, à titre de documentation).
 
 ## 4. Modèle non relationnel (MongoDB)
 
@@ -271,6 +272,11 @@ client, modifiable" est appliquée par un `update_one(..., upsert=True)`
 sur la paire `(product_id, user_id)` (`upsert_review` dans
 `reviews/services.py`), et toute écriture vérifie d'abord l'existence du
 produit côté Postgres (`_require_product`).
+
+Création : `docker/init-nosql/01-init-mongo.js`, exécuté par l'image `mongo`
+au premier démarrage. Il crée les deux collections avec une validation
+`$jsonSchema` (champs obligatoires, note entière entre 1 et 5 : une note de 9
+est refusée par la base elle-même) et les index.
 
 Index créés :
 - `product_specs` : unique sur `product_id`.
@@ -366,8 +372,8 @@ une contrainte native -- limite assumée, voir section 9.
 ## 7. Index et performance
 
 Index créé : `idx_order_created_at` sur `e_commerce_order(created_at)`.
-Deux candidats ont été essayés et écartés avant celui-ci (détails dans
-`api/e_commerce/management/commands/setup_relational_extras.py`) :
+Deux candidats ont été essayés et écartés avant celui-ci (détails en
+commentaire dans `docker/init-sql/01-extras.sql`) :
 - Un index sur `orderitem.product_id` s'est révélé redondant : Django crée
   automatiquement un index sur **toute** colonne de clé étrangère.
 - Un index sur `order.payment_status` n'apportait rien : avec seulement 3

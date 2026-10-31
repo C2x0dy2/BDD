@@ -71,7 +71,7 @@ site n'exigent pas de compte admin pour fonctionner.
 
 Le rôle PostgreSQL utilisé par l'application (`commerce_app`) est un rôle
 restreint (DML uniquement, pas de DDL) -- voir
-`api/e_commerce/management/commands/setup_relational_extras.py`.
+`docker/init-sql/01-extras.sql`.
 
 ## Authentification de l'API
 
@@ -128,23 +128,35 @@ Endpoint croisé (PostgreSQL + MongoDB) :
 /api/e_commerce         App principale : modèles, vues HTML, templates, commandes de management
 /api/reviews             MongoDB (pymongo direct) : specs produit + avis, utilisé par le site ET l'API
 /api/reports              Rapports SQL avancés (lecture seule), exposés en API
-/docker                docker-compose.yml
+/docker                docker-compose.yml, init-sql/ et init-nosql/ (scripts de création)
 /docs                  Document de présentation, schémas (docs/schemas), vidéo (docs/video)
 ```
 
-Écart assumé avec l'arborescence type du sujet : il n'y a pas de dossiers
-`docker/init-sql` et `docker/init-nosql`. La création et le peuplement des
-deux bases sont faits par des commandes Django exécutées automatiquement
-par `api/entrypoint.sh` :
+### Scripts de création et de peuplement
 
-| Rôle | Fichier |
-|------|---------|
-| Tables, clés, contraintes (SQL) | `api/e_commerce/migrations/` |
-| Vue, index, trigger, CHECK, rôle restreint (SQL) | `api/e_commerce/management/commands/setup_relational_extras.py` |
-| Index MongoDB | `api/reviews/services.py` (`ensure_indexes`) |
-| Peuplement PostgreSQL + MongoDB | `api/e_commerce/management/commands/seed_demo_data.py` |
+```
+/docker/init-sql/01-extras.sql          vue, index, CHECK, fonction + trigger, rôle restreint (exécuté)
+/docker/init-sql/reference/schema.sql   MPD complet généré par pg_dump (documentation, non exécuté)
+/docker/init-nosql/01-init-mongo.js     collections MongoDB, règles de validation, index (exécuté)
+```
 
-Le script SQL complet (MPD) est reproduit dans `docs/presentation.md` §3.
+Qui exécute quoi, dans l'ordre, au démarrage :
+
+| Étape | Script | Exécuté par |
+|-------|--------|-------------|
+| Tables, clés, contraintes PostgreSQL | `api/e_commerce/migrations/` | `entrypoint.sh` (`migrate`) |
+| Vue, index, trigger, rôle restreint | `docker/init-sql/01-extras.sql` | `entrypoint.sh` (`setup_relational_extras`) |
+| Collections, validateurs, index MongoDB | `docker/init-nosql/01-init-mongo.js` | l'image `mongo` elle-même, au premier démarrage du volume |
+| Peuplement PostgreSQL **et** MongoDB | `api/e_commerce/management/commands/seed_demo_data.py` | `entrypoint.sh` (`seed_demo_data`) |
+
+Deux choix assumés :
+- Les **tables PostgreSQL** viennent des migrations Django (le schéma de
+  l'application existante), pas d'un script SQL écrit à la main ; le résultat
+  exact est visible dans `docker/init-sql/reference/schema.sql`.
+- Le **peuplement** est un script Python (Faker) et non un fichier SQL/JS : il
+  doit garder cohérents les identifiants PostgreSQL et les `product_id` /
+  `user_id` des documents MongoDB. Il génère 2000 produits, 3000 commandes,
+  7488 lignes de commande, 3003 avis et 2000 fiches produit.
 
 ## Outils IA utilisés
 

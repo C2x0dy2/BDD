@@ -30,6 +30,8 @@ services:
       MONGO_INITDB_DATABASE: sika
     volumes:
       - mongodata:/data/db
+      # Collections, validators and indexes (first start only).
+      - ./init-nosql:/docker-entrypoint-initdb.d:ro
     ports:
       - "27017:27017"
     healthcheck:
@@ -49,6 +51,8 @@ services:
       MONGO_DB_NAME: sika
     volumes:
       - media_data:/app/media
+      # SQL creation scripts applied by setup_relational_extras.
+      - ./init-sql:/init-sql:ro
     ports:
       - "8000:8000"
     depends_on:
