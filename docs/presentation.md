@@ -439,10 +439,10 @@ plus proche d'un volume réel.
   activée (identifiants dans `.env`), mais l'application utilise le compte
   root de l'instance. Un utilisateur applicatif limité à la base `sika`
   (rôle `readWrite`), symétrique de `commerce_app`, serait la suite logique.
-- **API sans authentification** : les endpoints `/api/` sont ouverts (le
-  site HTML, lui, a sa propre authentification par session) ; une vraie
-  mise en production ajouterait une authentification par token sur l'API
-  également.
+- **Authentification par jeton simple** : l'API utilise les jetons DRF
+  (`/api/auth/token/`) : un jeton par utilisateur, sans expiration ni
+  rotation. Une mise en production utiliserait des jetons à durée limitée
+  (JWT) et du HTTPS. Les lectures du catalogue restent publiques par choix.
 - **`total_amount` recalculé par trigger, pas par le code applicatif** :
   volontaire (voir section 5), mais signifie que toute modification
   directe en SQL d'une ligne de commande doit passer par de vraies

@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,12 +37,18 @@ class CategoriesWithProductCountsView(APIView):
 
 
 class FrequentCustomersView(APIView):
+    # Lists customers' emails and names: personal data, staff only.
+    permission_classes = [IsAdminUser]
+
     def get(self, request):
         min_orders = _positive_int(request, "min_orders", 3)
         return Response(queries.frequent_customers(min_orders=min_orders))
 
 
 class CustomersWithoutOrdersView(APIView):
+    # Lists customers' emails and names: personal data, staff only.
+    permission_classes = [IsAdminUser]
+
     def get(self, request):
         return Response(queries.customers_without_orders())
 

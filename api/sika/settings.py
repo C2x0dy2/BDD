@@ -34,11 +34,26 @@ INSTALLED_APPS = [
     'django_ckeditor_5',
     'django_filters',
     'rest_framework',
+    'rest_framework.authtoken',
     'reviews',
     'reports',
 ]
 
 AUTH_USER_MODEL = 'e_commerce.User'
+
+# API authentication: reads stay public, every write needs a logged-in user
+# (token from POST /api/auth/token/, or the site's session cookie). Finer
+# rules (owner-only edits, staff-only personal data) live in
+# e_commerce/api_permissions.py and the individual views.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+}
 
 JAZZMIN_SETTINGS = {
     "site_title": "SÎKÂ Admin",

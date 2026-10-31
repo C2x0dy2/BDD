@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from e_commerce.api_permissions import is_staff
 from e_commerce.models import Product
 
 from . import services
@@ -18,6 +19,15 @@ def _number(request, name, cast):
         return cast(raw)
     except ValueError:
         raise ValidationError({name: "Must be a number."})
+
+
+def _can_edit_specs(user, product_id):
+    """Specs belong to the product's seller (or staff)."""
+    return is_staff(user) or Product.objects.filter(id=product_id, seller_id=user.id).exists()
+
+
+def _forbidden(detail):
+    return Response({"detail": detail}, status=status.HTTP_403_FORBIDDEN)
 
 
 def _require_product(product_id):
@@ -37,6 +47,8 @@ class ProductSpecsView(APIView):
     def put(self, request, product_id):
         if not _require_product(product_id):
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_edit_specs(request.user, product_id):
+            return _forbidden("Only the seller of this product (or staff) can edit its specs.")
 
         serializer = ProductSpecsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -46,6 +58,8 @@ class ProductSpecsView(APIView):
 
 
     def delete(self, request, product_id):
+        if not _can_edit_specs(request.user, product_id):
+            return _forbidden("Only the seller of this product (or staff) can delete its specs.")
         if not services.delete_product_specs(product_id):
             return Response({"detail": "No specs for this product."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -85,16 +99,20 @@ class ProductReviewsView(APIView):
         if not _require_product(product_id):
             return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = ReviewSerializer(data=request.data)
+        # The author is always the authenticated user: a client cannot post
+        # a review in someone else's name.
+        data = request.data.copy()
+        data["user_id"] = request.user.id
+        serializer = ReviewSerializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         services.upsert_review(
             product_id,
-            serializer.validated_data["user_id"],
+            request.user.id,
             serializer.validated_data["rating"],
             serializer.validated_data["comment"],
         )
-        doc = services.get_user_review(product_id, serializer.validated_data["user_id"])
+        doc = services.get_user_review(product_id, request.user.id)
         return Response(doc, status=status.HTTP_201_CREATED)
 
 
@@ -108,6 +126,8 @@ class ProductReviewDetailView(APIView):
         return Response(doc)
 
     def put(self, request, product_id, user_id):
+        if not (is_staff(request.user) or request.user.id == user_id):
+            return _forbidden("You can only edit your own review.")
         if services.get_user_review(product_id, user_id) is None:
             return Response({"detail": "Review not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -125,6 +145,8 @@ class ProductReviewDetailView(APIView):
         return Response(services.get_user_review(product_id, user_id))
 
     def delete(self, request, product_id, user_id):
+        if not (is_staff(request.user) or request.user.id == user_id):
+            return _forbidden("You can only delete your own review.")
         if not services.delete_review(product_id, user_id):
             return Response({"detail": "Review not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)

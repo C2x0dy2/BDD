@@ -78,6 +78,30 @@ Tous les endpoints documentés dans le README ont été appelés.
 
 **Défaut trouvé et corrigé pendant les tests** : cinq paramètres de requête invalides provoquaient une erreur 500 au lieu d'un 400 (`limit=abc`, `limit=-5`, `min_orders=abc`, `min_weight=abc`, `min_rating=abc`). Corrigé dans `reports/views.py` et `reviews/views.py` ; les 5 cas renvoient maintenant 400, les valeurs valides renvoient toujours 200.
 
+### Authentification et droits (ajoutés après la première série de tests)
+
+Jeton obtenu via `POST /api/auth/token/` (mauvais mot de passe refusé). 31 cas testés :
+
+| Cas | Résultat |
+|---|---|
+| Lectures (produits, détails, rapport de ventes) sans jeton | 200 |
+| Écritures sans jeton (produit, commande, avis, specs) | 401 |
+| Jeton invalide | 401 |
+| Rapports contenant des emails clients : anonyme / client / admin | 401 / 403 / 200 |
+| Client non vendeur crée un produit | 403 |
+| Vendeur crée un produit en indiquant un autre vendeur | 201, vendeur réel = lui-même |
+| Un vendeur modifie ou supprime le produit d'un autre | 403 |
+| Un vendeur tente de changer le vendeur de son produit | ignoré |
+| Admin supprime un produit | 204 |
+| Statut de commande : client / vendeur concerné / admin | 403 / 200 / 200 |
+| Avis posté en indiquant un autre `user_id` | 201, auteur réel = utilisateur connecté |
+| Supprimer l'avis d'un autre | 403 |
+| Modifier / supprimer son propre avis | 200 / 204 |
+| Specs : client / vendeur du produit | 403 / 200 |
+
+Le site HTML (accueil, catalogue, connexion) reste fonctionnel. Un compte
+`admin` est créé par le peuplement (mot de passe de démonstration).
+
 ## 5. Site HTML
 
 `/`, `/products/`, `/login/`, `/register/`, `/about/`, `/contact/`, `/admin/login/` : 200. `/cart/` sans connexion : 302 (redirection vers la connexion). Connexion avec le compte de démonstration : 302, puis accès au profil. Adminer et Mongo Express : 200.
@@ -92,4 +116,4 @@ Tous les endpoints documentés dans le README ont été appelés.
 - **Aucun test automatisé** : `manage.py test` exécute 0 test (les fichiers `tests.py` sont vides). Les tests ci-dessus sont manuels. Ajouter quelques tests d'API serait la suite logique.
 - Non testé : paiement, envoi d'emails, espace vendeur côté navigateur, inscription complète.
 - Les tests ont modifié les données de démonstration (statut de la commande 1, un avis ajouté sur le produit 904, fiche produit 3 modifiée). Pour retrouver l'état initial avant la vidéo : `docker compose down -v` puis `docker compose up -d --build`.
-- Non couvert par les consignes mais à noter : l'API n'a pas d'authentification (limite déjà documentée).
+- Les jetons n'expirent pas (limite documentée dans la présentation §9).

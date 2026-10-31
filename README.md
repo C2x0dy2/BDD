@@ -60,7 +60,9 @@ depuis `.env.example`. Si vous aviez déjà lancé une version précédente de
 la pile (MongoDB sans authentification), repartez de zéro avec
 `docker compose down -v`.
 
-Comptes de démonstration : tous les comptes créés par `seed_demo_data`
+Comptes de démonstration : un administrateur `admin` / `DemoPass123!`
+(lecture des rapports contenant des données clients, droits complets sur
+l'API) et tous les comptes créés par `seed_demo_data`
 (`user1@example.com` à `user1000@example.com`, les 30 premiers étant des
 vendeurs) utilisent le mot de passe `DemoPass123!`. Un superutilisateur
 Django doit être créé séparément si besoin (`docker compose exec api
@@ -70,6 +72,27 @@ site n'exigent pas de compte admin pour fonctionner.
 Le rôle PostgreSQL utilisé par l'application (`commerce_app`) est un rôle
 restreint (DML uniquement, pas de DDL) -- voir
 `api/e_commerce/management/commands/setup_relational_extras.py`.
+
+## Authentification de l'API
+
+La lecture (`GET`) est publique. Toute écriture exige un jeton :
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/token/   -H "Content-Type: application/json"   -d '{"username":"user2","password":"DemoPass123!"}' | sed -E 's/.*"token":"([^"]*)".*//')
+curl -X PATCH http://localhost:8000/api/products/1/   -H "Authorization: Token $TOKEN" -H "Content-Type: application/json"   -d '{"price":"19.90"}'
+```
+
+Sans jeton : `401`. Avec un jeton mais sans en avoir le droit : `403`.
+
+| Action | Qui peut |
+|--------|----------|
+| Créer un produit | vendeur approuvé (le vendeur est toujours l'utilisateur connecté) ou admin |
+| Modifier / supprimer un produit | son vendeur ou admin |
+| Changer le statut d'une commande | un vendeur ayant un article dans cette commande, ou admin |
+| Créer un avis | tout utilisateur connecté (auteur = utilisateur connecté) |
+| Modifier / supprimer un avis | son auteur ou admin |
+| Modifier / supprimer les specs d'un produit | son vendeur ou admin |
+| Rapports `frequent-customers` et `customers-without-orders` (emails clients) | admin uniquement |
 
 ## Endpoints API principaux
 

@@ -87,6 +87,14 @@ class Command(BaseCommand):
             products = self._seed_products(fake, categories, tags, sellers)
             orders, order_items = self._seed_orders(fake, users, products)
             self._seed_wishlist(users, products)
+            # Created last so it does not shift the ids of the users above.
+            User.objects.create_superuser(
+                username="admin",
+                email="admin@example.com",
+                password=DEMO_PASSWORD,
+                is_email_verified=True,
+                created_at=timezone.now(),
+            )
 
         self.stdout.write(self.style.SUCCESS(
             f"PostgreSQL: {len(categories)} categories, {len(tags)} tags, "
