@@ -129,7 +129,7 @@ Endpoint croisé (PostgreSQL + MongoDB) :
 /api/reviews             MongoDB (pymongo direct) : specs produit + avis, utilisé par le site ET l'API
 /api/reports              Rapports SQL avancés (lecture seule), exposés en API
 /docker                docker-compose.yml, init-sql/ et init-nosql/ (scripts de création)
-/docs                  Document de présentation, schémas (docs/schemas), vidéo (docs/video)
+/docs                  Document de présentation, schémas (docs/schemas), vidéo (lien dans le README, section « Vidéo de démonstration »)
 ```
 
 ### Scripts de création et de peuplement
@@ -157,6 +157,10 @@ Deux choix assumés :
   doit garder cohérents les identifiants PostgreSQL et les `product_id` /
   `user_id` des documents MongoDB. Il génère 2000 produits, 3000 commandes,
   7488 lignes de commande, 3003 avis et 2000 fiches produit.
+
+## Vidéo de démonstration
+
+[Voir la vidéo de démonstration (Google Drive)](https://drive.google.com/file/d/1ffRwNBaRhfJHvslbhttaIFSWyxHtUoUG/view?usp=sharing)
 
 ## Outils IA utilisés
 

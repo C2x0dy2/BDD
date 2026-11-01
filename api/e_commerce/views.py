@@ -323,15 +323,6 @@ def user_login(request):
                     pass
             
             if user is not None:
-                # Vérifier que l'email est vérifié (obligatoire)
-                if not user.is_email_verified:
-                    messages.error(
-                        request,
-                        'Veuillez vérifier votre email avant de vous connecter. '
-                        'Consultez votre boîte de réception.'
-                    )
-                    return redirect('e_commerce:login')
-                
                 # Connecter l'utilisateur
                 login(request, user)
                 

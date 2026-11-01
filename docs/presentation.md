@@ -367,7 +367,8 @@ une contrainte native -- limite assumée, voir section 9.
    (`POST /products/{id}/review/`) est immédiatement visible à la fois sur
    la fiche produit HTML et via `GET /api/products/{id}/reviews/` : testé
    en conditions réelles (connexion, ajout panier, soumission d'avis via
-   curl en simulant un navigateur), voir section 6 de la vidéo.
+   curl en simulant un navigateur), voir la vidéo de démonstration :
+   https://drive.google.com/file/d/1ffRwNBaRhfJHvslbhttaIFSWyxHtUoUG/view?usp=sharing
 
 ## 7. Index et performance
 

@@ -162,7 +162,7 @@ class CustomUserCreationForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
-        user.is_email_verified = False
+        user.is_email_verified = True
         
         # Définir le statut vendeur et les champs si become_seller est coché
         if self.cleaned_data.get('become_seller'):
